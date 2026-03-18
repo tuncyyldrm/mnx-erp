@@ -12,7 +12,7 @@ export default async function StokPage({ searchParams }: StokPageProps) {
   const resolvedParams = await searchParams;
   const query = resolvedParams.q || '';
 
-  // 1. Veri Çekme (Server-side)
+  // 1. Veri Çekme (Server-side) - image_url artık çekiliyor
   let sbQuery = supabase.from('products').select('*').eq('is_deleted', false);
   if (query) {
     sbQuery = sbQuery.or(`name.ilike.%${query}%,sku.ilike.%${query}%,oem_code.ilike.%${query}%,category.ilike.%${query}%,brand.ilike.%${query}%`);
@@ -149,8 +149,18 @@ function ProductRow({ p }: { p: any }) {
     <tr className={`group transition-all hover:bg-blue-50/30 ${isCritical ? 'bg-red-50/20' : ''}`}>
       <td className="p-6">
         <div className="flex items-center gap-4">
-          <div className="w-12 h-12 shrink-0 bg-slate-100 rounded-xl flex items-center justify-center font-black italic text-slate-400 group-hover:bg-slate-900 group-hover:text-white transition-all">
-            {p.sku?.substring(0, 2).toUpperCase() || 'PZ'}
+          {/* GÜNCELLENEN GÖRSEL ALANI */}
+          <div className="w-14 h-14 shrink-0 bg-slate-100 rounded-2xl flex items-center justify-center overflow-hidden border border-slate-200 group-hover:border-slate-900 transition-all shadow-sm bg-white">
+            {p.image_url ? (
+              <img src={p.image_url} alt={p.name} className="w-full h-full object-cover" />
+            ) : (
+              <div className="flex flex-col items-center">
+                 <span className="text-[10px] font-black italic text-slate-400 group-hover:text-slate-900">
+                   {p.sku?.substring(0, 2).toUpperCase() || 'PZ'}
+                 </span>
+                 <span className="text-[8px] text-slate-300 font-bold tracking-tighter mt-0.5">FOTO YOK</span>
+              </div>
+            )}
           </div>
           <div>
             <div className="font-black text-slate-900 group-hover:text-blue-600 transition-colors uppercase italic leading-none">{p.name}</div>
@@ -200,7 +210,14 @@ function MobileProductCard({ p }: { p: any }) {
     <div className={`p-4 ${isCritical ? 'bg-red-50/30' : ''}`}>
       <div className="flex justify-between items-start mb-3">
         <div className="flex gap-3">
-          <div className="w-10 h-10 bg-slate-900 text-white rounded-lg flex items-center justify-center font-black italic text-xs uppercase">{p.sku?.substring(0, 2)}</div>
+          {/* MOBİL GÖRSEL GÜNCELLEME */}
+          <div className="w-12 h-12 shrink-0 bg-slate-100 border border-slate-200 rounded-xl flex items-center justify-center overflow-hidden bg-white shadow-sm">
+             {p.image_url ? (
+                <img src={p.image_url} alt={p.name} className="w-full h-full object-cover" />
+             ) : (
+                <span className="font-black italic text-[10px] text-slate-400 uppercase">{p.sku?.substring(0, 2)}</span>
+             )}
+          </div>
           <div>
             <h4 className="font-black text-sm uppercase italic text-slate-900 leading-tight">{p.name}</h4>
             <p className="text-[10px] font-bold text-slate-400 mt-0.5">{p.sku} • {p.brand}</p>

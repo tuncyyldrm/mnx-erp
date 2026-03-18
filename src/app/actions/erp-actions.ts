@@ -23,6 +23,7 @@ export async function saveProduct(data: any) {
       category: data.category,
       purchase_price: toNumber(data.purchase_price),
       sell_price: toNumber(data.sell_price),
+      image_url: data.image_url || null,
       // stock_count burada gönderilmiyor çünkü tetikleyiciler hareketlere göre hesaplayacak
       critical_limit: Math.floor(toNumber(data.critical_limit) || 5),
       shelf_no: data.shelf_no?.toUpperCase(),

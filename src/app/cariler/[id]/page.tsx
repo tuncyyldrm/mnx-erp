@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import Link from 'next/link';
 
 interface Activity {
   id: string;
@@ -189,15 +190,46 @@ function Badge({ type }: { type: string }) {
 
 function ActivityRow({ act }: { act: Activity }) {
   const isPositive = ['purchase', 'collection'].includes(act.type);
+  
+  // Belge tipine göre yönlendirme URL'ini belirle
+  const getDetailLink = (docNo: string | undefined) => {
+    if (!docNo) return null;
+    if (docNo.startsWith('ST-')) return `/satis/izle/${act.id}`; // Satış detay sayfası
+    if (docNo.startsWith('AL-')) return `/alis/izle/${act.id}`;  // Alış detay sayfası
+    return null;
+  };
+
+  const detailLink = getDetailLink(act.doc_no);
+
   return (
-    <tr className="hover:bg-slate-50/50 transition-all group">
+    <tr className="hover:bg-slate-50/80 transition-all group">
       <td className="p-8 text-[11px] font-black text-slate-400 uppercase italic">
         {new Date(act.created_at).toLocaleDateString('tr-TR')}
       </td>
       <td className="p-8">
-        <div className="flex flex-col gap-1">
-          <Badge type={act.type} />
-          {act.doc_no && <span className="text-[10px] font-bold text-slate-400 ml-1 italic tracking-widest"># {act.doc_no}</span>}
+        <div className="flex items-center gap-4">
+          <div className="flex flex-col gap-1">
+            <Badge type={act.type} />
+            {act.doc_no && (
+              <span className="text-[10px] font-bold text-slate-400 ml-1 italic tracking-widest">
+                # {act.doc_no}
+              </span>
+            )}
+          </div>
+          
+          {/* Belge Numarası Varsa İncele Butonu Göster */}
+          {detailLink && (
+            <Link 
+              href={detailLink}
+              className="p-2 bg-white border-2 border-slate-100 rounded-xl opacity-0 group-hover:opacity-100 hover:border-slate-900 hover:bg-slate-900 hover:text-white transition-all shadow-sm"
+              title="Belgeyi Görüntüle"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/>
+                <circle cx="12" cy="12" r="3"/>
+              </svg>
+            </Link>
+          )}
         </div>
       </td>
       <td className="p-8">
@@ -207,10 +239,10 @@ function ActivityRow({ act }: { act: Activity }) {
       </td>
       <td className="p-8 text-right">
         <div className="flex flex-col items-end">
-          <p className="text-xl font-black italic tracking-tighter text-slate-900 leading-none">
+          <p className={`text-xl font-black italic tracking-tighter leading-none ${isPositive ? 'text-emerald-600' : 'text-slate-900'}`}>
             {act.amount.toLocaleString('tr-TR')} <small className="text-[10px] not-italic opacity-40">TL</small>
           </p>
-          <span className={`text-[8px] font-black mt-1 ${isPositive ? 'text-emerald-500' : 'text-slate-400'}`}>
+          <span className={`text-[8px] font-black mt-1 uppercase tracking-widest ${isPositive ? 'text-emerald-500' : 'text-slate-400'}`}>
             {isPositive ? 'HESABA GİRİŞ' : 'HESAPTAN ÇIKIŞ'}
           </span>
         </div>

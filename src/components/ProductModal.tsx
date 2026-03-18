@@ -3,13 +3,16 @@
 import { useState, useEffect } from 'react';
 import { saveProduct } from '@/app/actions/erp-actions';
 import { useRouter } from 'next/navigation';
+// 6. satırdaki hatalı yolu bununla değiştir:
+import { supabase } from '@/lib/supabase';
+import imageCompression from 'browser-image-compression';
 
 export function ProductModal({ trigger, editData }: { trigger: React.ReactNode; editData?: any }) {
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
   
-  // SQL Şemanla %100 uyumlu başlangıç değerleri
   const initialForm = {
     id: undefined,
     sku: '',
@@ -20,29 +23,72 @@ export function ProductModal({ trigger, editData }: { trigger: React.ReactNode; 
     shelf_no: '',
     purchase_price: 0,
     sell_price: 0,
-    tax_rate: 20, // DB default
-    unit: 'Adet',  // DB default
+    tax_rate: 20,
+    unit: 'Adet',
     stock_count: 0,
     critical_limit: 5,
-    is_active: true
+    is_active: true,
+    image_url: '' // Yeni eklenen alan
   };
 
   const [formData, setFormData] = useState(initialForm);
 
+  // Görsel Yükleme Fonksiyonu
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    try {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      setUploading(true);
+
+      // 1. Görsel Sıkıştırma (Browser-side)
+      const options = {
+        maxSizeMB: 0.2,
+        maxWidthOrHeight: 1000,
+        useWebWorker: true,
+        fileType: 'image/webp'
+      };
+      const compressedFile = await imageCompression(file, options);
+
+      // 2. Storage'a Yükleme
+      const fileName = `${formData.sku || 'prod'}-${Date.now()}.webp`;
+const { data, error } = await supabase.storage
+  .from('product-images')
+  .upload(fileName, compressedFile, {
+    contentType: 'image/webp', // Dosya tipini açıkça belirt
+    upsert: true               // Aynı isimde dosya varsa üzerine yaz
+  });
+
+      if (error) throw error;
+
+      // 3. Public URL'i Al ve Form State'ine Yaz
+const { data: { publicUrl } } = supabase.storage
+  .from('product-images')
+  .getPublicUrl(fileName);
+const cacheBusterUrl = `${publicUrl}?t=${Date.now()}`;
+setFormData(prev => ({ ...prev, image_url: cacheBusterUrl }));
+
+    } catch (err: any) {
+      alert("Görsel yüklenemedi: " + err.message);
+    } finally {
+      setUploading(false);
+    }
+  };
+
   useEffect(() => {
     if (editData && isOpen) {
       setFormData({
-        ...initialForm, // Eksik alan kalmaması için önce initial'ı yayıyoruz
+        ...initialForm,
         ...editData,
-        // Sayısal alan dönüşüm garantisi
         purchase_price: Number(editData.purchase_price) || 0,
         sell_price: Number(editData.sell_price) || 0,
         tax_rate: Number(editData.tax_rate) || 20,
         stock_count: Number(editData.stock_count) || 0,
-        critical_limit: Number(editData.critical_limit) || 5
+        critical_limit: Number(editData.critical_limit) || 5,
+        image_url: editData.image_url || ''
       });
     } else if (!isOpen) {
-      setFormData(initialForm); // Kapatıldığında formu temizle
+      setFormData(initialForm);
     }
   }, [editData, isOpen]);
 
@@ -50,30 +96,31 @@ export function ProductModal({ trigger, editData }: { trigger: React.ReactNode; 
     ? (((formData.sell_price - formData.purchase_price) / formData.purchase_price) * 100).toFixed(0) 
     : 0;
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    try {
-      // submissionData tip güvenliği için formdan ayrıştırılır
-      const result = await saveProduct({
-        ...formData,
-        sku: formData.sku.toUpperCase().trim(),
-        id: formData.id || undefined,
-        updated_at: new Date().toISOString()
-      });
+const handleSubmit = async (e: React.ChangeEvent<any>) => {
+  e.preventDefault();
+  if (uploading) return alert("Görsel yüklenirken bekleyin...");
+  
+  setLoading(true);
+  try {
+    // Tüm formData'yı gönderdiğimizden emin oluyoruz
+    const result = await saveProduct({
+      ...formData, 
+      sku: formData.sku.toUpperCase().trim(),
+      // image_url zaten formData içinde olduğu için buraya otomatik dahil olur
+    });
 
-      if (result.success) {
-        setIsOpen(false);
-        router.refresh();
-      } else {
-        alert(`İşlem Başarısız: ${result.error}`);
-      }
-    } catch (err) {
-      alert("Sistem hatası: Veritabanı bağlantısını kontrol edin.");
-    } finally {
-      setLoading(false);
+    if (result.success) {
+      setIsOpen(false);
+      router.refresh();
+    } else {
+      alert(`Hata: ${result.error}`);
     }
-  };
+  } catch (err) {
+    alert("Sistem hatası oluştu.");
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <>
@@ -103,8 +150,29 @@ export function ProductModal({ trigger, editData }: { trigger: React.ReactNode; 
                 {/* Sol Bölüm: Tanımlama */}
                 <div className="space-y-5">
                   <div className="flex items-center gap-2 mb-2">
-                    <span className="text-[10px] font-bold uppercase text-slate-400 tracking-widest italic">Genel Bilgiler</span>
+                    <span className="text-[10px] font-bold uppercase text-slate-400 tracking-widest italic">Ürün Görseli & Tanım</span>
                     <div className="h-px flex-grow bg-slate-100" />
+                  </div>
+
+                  {/* Görsel Yükleme Alanı */}
+                  <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-3xl border-2 border-dashed border-slate-200 hover:border-blue-400 transition-all relative overflow-hidden">
+                    <div className="w-20 h-20 bg-white rounded-2xl flex-shrink-0 border border-slate-100 flex items-center justify-center overflow-hidden">
+                      {formData.image_url ? (
+                        <img src={formData.image_url} alt="Preview" className="w-full h-full object-cover" />
+                      ) : (
+                        <span className="text-2xl">📸</span>
+                      )}
+                    </div>
+                    <div className="flex-grow">
+                      <label className="text-[9px] font-black text-slate-500 uppercase block mb-1">Fotoğraf Yükle</label>
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        onChange={handleImageUpload}
+                        className="text-xs file:hidden cursor-pointer" 
+                      />
+                      {uploading && <p className="text-[8px] font-bold text-blue-600 animate-pulse mt-1">Sıkıştırılıyor...</p>}
+                    </div>
                   </div>
 
                   <div className="space-y-1.5">
@@ -137,7 +205,9 @@ export function ProductModal({ trigger, editData }: { trigger: React.ReactNode; 
                       />
                     </div>
                   </div>
-
+                  {/* ... Diğer inputlar aynı kalıyor ... */}
+                  
+                  {/* Kategori ve Marka buraya gelecek */}
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1.5">
                       <label className="text-[9px] font-black text-slate-500 uppercase ml-2">Kategori</label>
@@ -158,7 +228,7 @@ export function ProductModal({ trigger, editData }: { trigger: React.ReactNode; 
                   </div>
                 </div>
 
-                {/* Sağ Bölüm: Finansal & Stok */}
+                {/* Sağ Bölüm: Finansal & Stok (Kodun devamı senin orijinal yapınla aynı) */}
                 <div className="space-y-5">
                   <div className="flex items-center gap-2 mb-2">
                     <span className="text-[10px] font-bold uppercase text-slate-400 tracking-widest italic">Finans & Depo</span>
@@ -235,11 +305,11 @@ export function ProductModal({ trigger, editData }: { trigger: React.ReactNode; 
               <div className="pt-6">
                 <button 
                   type="submit" 
-                  disabled={loading}
+                  disabled={loading || uploading}
                   className={`w-full py-6 rounded-[24px] font-black text-xs uppercase tracking-[0.3em] transition-all flex items-center justify-center gap-3 shadow-xl active:scale-95
-                    ${loading ? 'bg-slate-100 text-slate-400' : 'bg-slate-900 text-white hover:bg-blue-600 shadow-blue-200 border-b-4 border-black/20'}`}
+                    ${loading || uploading ? 'bg-slate-100 text-slate-400' : 'bg-slate-900 text-white hover:bg-blue-600 shadow-blue-200 border-b-4 border-black/20'}`}
                 >
-                  {loading ? 'VERİLER YAZILIYOR...' : (
+                  {loading ? 'VERİLER YAZILIYOR...' : uploading ? 'GÖRSEL YÜKLENİYOR...' : (
                     <>
                       {formData.id ? 'DEĞİŞİKLİKLERİ KAYDET' : 'ÜRÜNÜ SİSTEME TANIMLA'}
                       <span className="text-xl">→</span>
