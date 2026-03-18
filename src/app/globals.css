@@ -1,26 +1,101 @@
 @import "tailwindcss";
 
+@theme {
+  /* Memonex Marka Renk Paleti */
+  --color-brand-blue: #2563eb;
+  --color-brand-dark: #0f172a;
+  --color-brand-accent: #3b82f6;
+  
+  /* Özel Radius Değerleri */
+  --radius-memonex: 2rem; 
+  --radius-memonex-lg: 3rem;
+
+  /* Animasyonlar (Isparta Hızı İçin) */
+  --animate-m-fade-in: m-fade-in 0.3s ease-out;
+}
+
+@keyframes m-fade-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f8fafc;
+  --foreground: #0f172a;
+  --accent: #2563eb;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
+/* ERP tutarlılığı için koyu modda bile açık tema (Light Mode) zorunluluğu */
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: #f8fafc;
+    --foreground: #0f172a;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@layer base {
+  * {
+    @apply border-slate-200 outline-none transition-colors duration-200;
+  }
+  
+  body {
+    background: var(--background);
+    color: var(--foreground);
+    @apply antialiased selection:bg-brand-blue selection:text-white overflow-x-hidden font-sans;
+    /* Metinleri daha okunabilir kılar */
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Başlıklar: Keskin ve Maskülen */
+  h1, h2, h3, h4 {
+    @apply tracking-tighter uppercase font-black italic leading-tight;
+  }
+}
+
+@layer components {
+  /* Memonex Ana Kart */
+  .m-card {
+    @apply bg-white border-2 border-slate-100 rounded-memonex shadow-sm 
+           hover:shadow-xl hover:shadow-slate-200/50 hover:border-slate-200
+           transition-all duration-300 animate-m-fade-in;
+  }
+
+  /* Gelişmiş Giriş Alanları */
+  .m-input {
+    @apply w-full px-5 py-4 bg-slate-50 border-2 border-transparent rounded-2xl 
+           font-bold text-slate-900 text-sm md:text-base
+           focus:bg-white focus:border-brand-blue focus:ring-4 focus:ring-blue-50/50
+           transition-all placeholder:text-slate-300 placeholder:italic;
+  }
+
+  /* ERP Buton Stilleri */
+  .m-btn-primary {
+    @apply bg-brand-dark text-white px-6 py-3 rounded-2xl font-black italic uppercase 
+           text-xs tracking-widest hover:bg-brand-blue hover:scale-105 
+           active:scale-95 transition-all shadow-lg shadow-slate-200;
+  }
+
+  /* Tablo Konteynırı */
+  .m-table-wrapper {
+    @apply bg-white border-2 border-slate-100 rounded-memonex-lg shadow-sm overflow-hidden;
+  }
+
+  /* Durum Rozetleri (Badge) */
+  .m-badge {
+    @apply px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border-2;
+  }
+}
+
+/* Mobil Scrollbar Gizleme (Opsiyonel) */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Fokus durumunda mavi halka (Accessibility) */
+:focus-visible {
+  @apply ring-2 ring-brand-blue ring-offset-2;
 }
