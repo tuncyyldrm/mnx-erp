@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { ContactModal } from '@/components/ContactModal';
+import Link from 'next/link';
 import { 
   ArrowLeft, Phone, MapPin, Hash, FileText, 
   ExternalLink, Calendar, Calculator, Info,
@@ -309,6 +310,10 @@ export default function CariDetayPage() {
 // --- ALT BİLEŞENLER ---
 
 function ActivityRow({ act }: { act: Activity }) {
+  // Belge linkini belirle (finance_logs'dan gelenlerin linki olmaz)
+  const isDocumented = act.type === 'sale' || act.type === 'purchase';
+  const viewLink = act.type === 'sale' ? `/satis/izle/${act.id}` : `/alis/izle/${act.id}`;
+
   return (
     <tr className="hover:bg-slate-50/80 transition-all group print:hover:bg-transparent">
       <td className="px-12 py-12 print:py-4 print:px-6">
@@ -323,18 +328,29 @@ function ActivityRow({ act }: { act: Activity }) {
         <div className="flex flex-col gap-3">
           <Badge type={act.type} />
           {act.doc_no && (
-            <div className="flex items-center gap-2 group/link w-fit">
-              <span className="text-[10px] font-bold text-blue-500/60 italic tracking-widest uppercase print:text-slate-400">
-                #{act.doc_no}
-              </span>
-            </div>
+            <span className="text-[10px] font-bold text-slate-400 italic tracking-widest uppercase">
+              #{act.doc_no}
+            </span>
           )}
         </div>
       </td>
       <td className="px-12 py-12 print:py-4 print:px-6">
-        <p className="text-[13px] font-black text-slate-700 uppercase italic tracking-tighter line-clamp-2 max-w-md">
-          {act.description}
-        </p>
+        <div className="flex flex-col gap-1">
+          <p className="text-[13px] font-black text-slate-700 uppercase italic tracking-tighter line-clamp-1 max-w-md">
+            {act.description}
+          </p>
+          
+          {/* BELGE İZLE BUTONU (Sadece Alım/Satış ise) */}
+          {isDocumented && (
+            <Link 
+              href={viewLink}
+              className="flex items-center gap-1.5 text-[9px] font-black text-blue-500 hover:text-blue-700 transition-colors uppercase tracking-widest mt-2 group/btn w-fit print:hidden"
+            >
+              <ExternalLink size={10} className="group-hover/btn:translate-x-0.5 transition-transform" />
+              BELGEYİ GÖR
+            </Link>
+          )}
+        </div>
       </td>
       <td className="px-12 py-12 text-right print:py-4 print:px-6">
         <div className="flex flex-col items-end gap-1">

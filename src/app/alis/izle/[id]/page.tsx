@@ -24,6 +24,11 @@ interface Transaction {
   description: string;
   contacts: { id: string; name: string; phone: string; address: string; balance: number };
   transaction_items: TransactionItem[];
+  subtotal: number;
+  tax_total: number;
+  discount_total: number;
+  payment_method: string;
+  status: 'taslak' | 'onaylandi' | 'gonderildi' | 'iptal' | 'reddedildi';
 }
 
 export default function TransactionDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -204,18 +209,51 @@ export default function TransactionDetailPage({ params }: { params: Promise<{ id
               </tbody>
             </table>
           </div>
-
-          {/* Alt Toplam Özeti */}
+{/* Alt Toplam Özeti - Memonex Optimized */}
           <div className="flex flex-col md:flex-row justify-between items-end gap-8 pt-12 border-t-2 border-dashed border-slate-200">
+            
+            {/* SOL: Açıklama ve Ödeme Yöntemi */}
             <div className="text-left hidden md:block">
               <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-2 italic">Notlar / Açıklama</p>
-              <p className="text-slate-600 text-sm font-bold italic max-w-xs leading-relaxed uppercase tracking-tighter">
+              <p className="text-slate-600 text-sm font-bold italic max-w-xs leading-relaxed uppercase tracking-tighter mb-4">
                 {transaction.description || 'Bu belge sistem tarafından otomatik oluşturulmuştur.'}
               </p>
+              <div className="flex items-center gap-2">
+                 <span className="bg-slate-100 text-slate-500 text-[9px] font-black px-3 py-1 rounded-full uppercase tracking-tighter border border-slate-200">
+                   💳 {transaction.payment_method || 'NAKİT'}
+                 </span>
+                 <span className="bg-blue-50 text-blue-600 text-[9px] font-black px-3 py-1 rounded-full uppercase tracking-tighter border border-blue-100">
+                   📦 {transaction.transaction_items?.length || 0} KALEM
+                 </span>
+              </div>
             </div>
             
-            <div className="text-right">
-              <span className={`text-[12px] font-black ${theme.textColor} uppercase block mb-2 italic tracking-widest`}>
+            {/* SAĞ: Finansal Detaylar ve Dev Toplam */}
+            <div className="text-right w-full md:w-auto">
+              <div className="space-y-1 mb-4 px-2">
+                {/* Ara Toplam */}
+                <div className="flex justify-end gap-12 text-[10px] font-black text-slate-400 uppercase italic tracking-widest">
+                  <span>ARA TOPLAM</span>
+                  <span className="text-slate-600">{Number(transaction.subtotal || 0).toLocaleString('tr-TR')} TL</span>
+                </div>
+                
+                {/* İndirim (Eğer varsa göster) */}
+                {Number(transaction.discount_total) > 0 && (
+                  <div className="flex justify-end gap-12 text-[10px] font-black text-emerald-500 uppercase italic tracking-widest">
+                    <span>TOPLAM İNDİRİM</span>
+                    <span>-{Number(transaction.discount_total).toLocaleString('tr-TR')} TL</span>
+                  </div>
+                )}
+                
+                {/* KDV */}
+                <div className="flex justify-end gap-12 text-[10px] font-black text-slate-400 uppercase italic tracking-widest">
+                  <span>KDV TOPLAMI</span>
+                  <span className="text-slate-600">{Number(transaction.tax_total || 0).toLocaleString('tr-TR')} TL</span>
+                </div>
+              </div>
+
+              {/* ANA TOPLAM */}
+              <span className={`text-[12px] font-black ${theme.textColor} uppercase block mb-1 italic tracking-widest`}>
                 {isPurchase ? 'Ödenecek Toplam' : 'Tahsil Edilecek Toplam'}
               </span>
               <div className="text-6xl md:text-8xl font-black italic tracking-tighter text-slate-900 leading-none">
