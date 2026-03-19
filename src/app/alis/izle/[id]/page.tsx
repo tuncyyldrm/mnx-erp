@@ -108,13 +108,19 @@ export default function TransactionDetailPage({ params }: { params: Promise<{ id
       
       {/* Üst Navigasyon ve Güvenli Aksiyonlar */}
       <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-10 print:hidden">
-        <Link href="/" className="group flex items-center gap-3 text-slate-400 hover:text-slate-900 transition-all">
-          <div className="w-10 h-10 rounded-full border border-slate-200 flex items-center justify-center group-hover:bg-slate-900 group-hover:text-white transition-all">
-            ←
+        <button 
+          onClick={() => router.back()} // Gerçek geri gitme fonksiyonu
+          className="group flex items-center gap-4 text-slate-400 hover:text-slate-900 transition-all w-fit bg-transparent border-none p-0 cursor-pointer"
+        >
+          <div className="w-11 h-11 rounded-2xl border-2 border-slate-100 flex items-center justify-center bg-white shadow-sm group-hover:bg-slate-900 group-hover:border-slate-900 group-hover:text-white transition-all duration-300 active:scale-90">
+            <span className="text-xl group-hover:-translate-x-1 transition-transform">←</span>
           </div>
-          <span className="font-black text-[11px] uppercase tracking-[0.2em]">Listeye Dön</span>
-        </Link>
-
+          
+          <div className="flex flex-col items-start leading-none text-left">
+            <span className="font-black text-[10px] uppercase tracking-[0.3em] italic">Geri Dön</span>
+            <span className="text-[8px] font-bold text-slate-300 uppercase tracking-[0.1em] mt-1 group-hover:text-blue-500 transition-colors">Önceki Sayfa</span>
+          </div>
+        </button>
         <div className="flex items-center gap-3 w-full md:w-auto">
           {!isConfirming ? (
             <button 
@@ -151,31 +157,35 @@ export default function TransactionDetailPage({ params }: { params: Promise<{ id
         <div className={`h-4 w-full ${theme.color}`}></div>
         
         <div className="p-8 md:p-16">
-          <div className="flex flex-col md:flex-row justify-between items-start gap-8 mb-20">
-            <div>
-              <h1 className="text-5xl font-black italic tracking-tighter uppercase text-slate-900 leading-[0.9]">
-                {isPurchase ? 'Mal Alım' : 'Satış'} <br/>
-                <span className={`${theme.textColor} not-italic`}>Belgesi</span>
-              </h1>
-              <div className="mt-6 space-y-1">
-                <p className="text-slate-400 font-black uppercase text-[10px] tracking-[0.3em]">
-                  Doküman No: {transaction.doc_no || '---'}
-                </p>
-                <p className="text-slate-400 font-black uppercase text-[10px] tracking-[0.3em]">
-                  Tarih: {new Date(transaction.created_at).toLocaleDateString('tr-TR')}
-                </p>
-              </div>
-            </div>
+{/* Değişen Satır: flex-col kalsın ama print:flex-row ekle */}
+<div className="flex flex-col md:flex-row print:flex-row justify-between items-start gap-8 print:gap-4 mb-20 print:mb-10">
+  
+  {/* SOL TARAF: Belge Başlığı ve No */}
+  <div className="print:w-1/2">
+    <h1 className="text-5xl print:text-4xl font-black italic tracking-tighter uppercase text-slate-900 leading-[0.9]">
+      {isPurchase ? 'Mal Alım' : 'Satış'} <br/>
+      <span className={`${theme.textColor} not-italic`}>Belgesi</span>
+    </h1>
+    <div className="mt-6 print:mt-2 space-y-1">
+      <p className="text-slate-400 font-black uppercase text-[10px] tracking-[0.3em]">
+        Doküman No: {transaction.doc_no || '---'}
+      </p>
+      <p className="text-slate-400 font-black uppercase text-[10px] tracking-[0.3em]">
+        Tarih: {new Date(transaction.created_at).toLocaleDateString('tr-TR')}
+      </p>
+    </div>
+  </div>
 
-            <div className={`bg-slate-50 p-8 rounded-[32px] border-2 ${theme.borderColor} min-w-[300px]`}>
-              <span className={`text-[10px] font-black ${theme.textColor} uppercase tracking-widest block mb-4 italic`}>
-                {theme.subText}
-              </span>
-              <p className="text-xl font-black text-slate-900 italic uppercase">{transaction.contacts?.name}</p>
-              <p className="text-sm text-slate-500 font-bold mt-2">{transaction.contacts?.phone || 'Telefon Yok'}</p>
-              <p className="text-[10px] text-slate-400 uppercase mt-2 font-bold leading-relaxed">{transaction.contacts?.address || ''}</p>
-            </div>
-          </div>
+  {/* SAĞ TARAF: Müşteri/Tedarikçi Bilgileri */}
+  <div className={`bg-slate-50 print:bg-white p-8 print:p-4 rounded-[32px] print:rounded-none border-2 ${theme.borderColor} min-w-[300px] print:min-w-0 print:w-1/2 text-right`}>
+    <span className={`text-[10px] font-black ${theme.textColor} uppercase tracking-widest block mb-4 print:mb-1 italic`}>
+      {theme.subText}
+    </span>
+    <p className="text-xl print:text-lg font-black text-slate-900 italic uppercase">{transaction.contacts?.name}</p>
+    <p className="text-sm print:text-xs text-slate-500 font-bold mt-2 print:mt-1">{transaction.contacts?.phone || 'Telefon Yok'}</p>
+    <p className="text-[10px] text-slate-400 uppercase mt-2 font-bold leading-relaxed">{transaction.contacts?.address || ''}</p>
+  </div>
+</div>
 
           {/* Ürün Tablosu */}
           <div className="mb-20 overflow-x-auto">
