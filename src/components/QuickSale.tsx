@@ -57,29 +57,42 @@ export function QuickSale({ products = [], contacts = [] }: { products: any[], c
       return;
     }
 
-    startTransition(async () => {
+startTransition(async () => {
       try {
+        // 1. İşlem başlamadan önce formu kilitlemek için isPending zaten devrede.
         const result = await createTransaction({
           contact_id: formData.contact_id,
           type: 'sale',
+          invoice_type: 'SATIS', // Tip güvenliği için ekledik
           items: [{ 
             product_id: formData.product_id, 
             quantity: formData.qty, 
-            unit_price: Number(selectedProduct.sell_price) 
+            unit_price: Number(selectedProduct.sell_price),
+            tax_rate: Number(selectedProduct.tax_rate || 20)
           }],
           description: `Hızlı Satış: ${selectedProduct.sku}`
         });
 
         if (result.success) {
-          // Ürünü temizle ama müşteriyi tut (Seri satış için)
+          // 2. Önce state'i sıfırlıyoruz (UI anında temizlenir)
           setFormData(prev => ({ ...prev, product_id: '', qty: 1 }));
+          
+          // 3. Veritabanı ve Server Component'leri sessizce tazeliyoruz
           router.refresh(); 
-          productSelectRef.current?.focus();
+
+          // 4. Fokus yönetimi: Ürün seçiciye (F2) anında geri dön
+          // setTimeout, router.refresh() sonrası render çakışmasını önler.
+          setTimeout(() => {
+            productSelectRef.current?.focus();
+          }, 150);
+
         } else {
-          alert("Hata: " + result.error);
+          // Hata durumunda isPending false olur ve alert kullanıcıyı durdurur.
+          alert("İşlem Başarısız: " + (result.error || "Bilinmeyen hata."));
         }
       } catch (error) {
-        alert('Bağlantı Hatası! Lütfen internetinizi kontrol edin.');
+        console.error("Satış Hatası:", error);
+        alert('Bağlantı Hatası! Terminal çevrimdışı olabilir.');
       }
     });
   };

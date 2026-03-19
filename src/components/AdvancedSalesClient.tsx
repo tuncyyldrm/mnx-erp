@@ -10,6 +10,7 @@ interface BasketItem {
   quantity: number;
   unit_price: number;
   stock_count: number;
+  tax_rate: number; // Mevzuat için eklendi
 }
 
 interface AdvancedSalesProps {
@@ -28,14 +29,13 @@ export default function AdvancedSalesClient({
   const [isPending, startTransition] = useTransition();
   const isPurchase = mode === 'purchase';
 
-  // --- TEMA VE ETİKET AYARLARI ---
+  // --- TEMA AYARLARI ---
   const theme = {
     color: isPurchase ? 'orange' : 'blue',
     bg: isPurchase ? 'bg-orange-600' : 'bg-blue-600',
     hover: isPurchase ? 'hover:bg-orange-700' : 'hover:bg-blue-700',
     border: isPurchase ? 'focus:border-orange-500' : 'focus:border-blue-500',
     text: isPurchase ? 'text-orange-600' : 'text-blue-600',
-    label: isPurchase ? 'STOK GİRİŞİ / ALIM' : 'STOK ÇIKIŞI / SATIŞ',
     button: isPurchase ? '💾 STOK GİRİŞİNİ KAYDET' : '💾 SATIŞI ONAYLA VE YAZDIR'
   };
 
@@ -59,7 +59,8 @@ export default function AdvancedSalesClient({
         name: product.name,
         quantity: 1,
         unit_price: defaultPrice,
-        stock_count: product.stock_count
+        stock_count: product.stock_count,
+        tax_rate: product.tax_rate || 20 // Varsayılan KDV %20
       }, ...basket]);
     }
     setSearchQuery('');
@@ -74,15 +75,23 @@ export default function AdvancedSalesClient({
     ).slice(0, 8);
   }, [products, searchQuery]);
 
+  // --- MEVZUAT UYUMLU HESAPLAMA ---
   const totals = useMemo(() => {
-    return { grandTotal: basket.reduce((acc, item) => acc + (item.quantity * item.unit_price), 0) };
+    const subtotal = basket.reduce((acc, item) => acc + (item.quantity * item.unit_price), 0);
+    const taxTotal = basket.reduce((acc, item) => {
+      return acc + (item.quantity * item.unit_price * (item.tax_rate / 100));
+    }, 0);
+    return {
+      subtotal,
+      taxTotal,
+      grandTotal: subtotal + taxTotal
+    };
   }, [basket]);
 
   const handleSave = async () => {
     if (!selectedContact) return alert("Lütfen bir Cari seçiniz!");
     if (basket.length === 0) return alert("Sepetiniz boş!");
 
-    // Satış modunda stok kontrolü (Opsiyonel: Eksiye düşmeye izin verilmiyorsa)
     if (!isPurchase) {
       const outOfStock = basket.find(i => i.quantity > i.stock_count);
       if (outOfStock) return alert(`${outOfStock.name} için yeterli stok yok!`);
@@ -92,13 +101,14 @@ export default function AdvancedSalesClient({
       const result = await createTransaction({
         contact_id: selectedContact,
         type: mode,
-        doc_no: docNo,
+        invoice_type: 'SATIS', // GİB Standart Tip
         items: basket.map(i => ({ 
           product_id: i.id, 
           quantity: i.quantity, 
           unit_price: i.unit_price,
-          line_total: i.quantity * i.unit_price
-        }))
+          tax_rate: i.tax_rate
+        })),
+        description: `${docNo} nolu belge ile sistem girişi yapıldı.`
       });
 
       if (result.success) {
@@ -106,6 +116,7 @@ export default function AdvancedSalesClient({
         setDocNo(`${isPurchase ? 'AL' : 'ST'}-${Date.now().toString().slice(-6)}`);
         router.refresh();
         alert(isPurchase ? "Alım başarıyla işlendi." : "Satış fişi oluşturuldu.");
+        // İsteğe bağlı: Fatura ID'si ile PDF'e yönlendirilebilir -> router.push(`/satis/izle/${result.id}`)
       } else {
         alert("Hata oluştu: " + result.error);
       }
@@ -122,7 +133,7 @@ export default function AdvancedSalesClient({
             {isPurchase ? '📦 Mal Kabul' : '🛒 Parça Çıkışı'}
           </h2>
           <input 
-            className={`w-full p-4 bg-slate-100 rounded-2xl border-2 border-transparent ${theme.border} outline-none font-bold transition-all`}
+            className={`w-full p-4 bg-slate-100 rounded-2xl border-2 border-transparent ${theme.border} outline-none font-bold transition-all text-slate-900`}
             placeholder="SKU veya Parça Ara..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -154,9 +165,7 @@ export default function AdvancedSalesClient({
         {/* CARİ VE BELGE BİLGİSİ */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
           <div>
-            <label className="text-[10px] font-black text-slate-400 uppercase ml-2 mb-1 block">
-              {isPurchase ? 'Tedarikçi' : 'Müşteri'}
-            </label>
+            <label className="text-[10px] font-black text-slate-400 uppercase ml-2 mb-1 block">{isPurchase ? 'Tedarikçi' : 'Müşteri'}</label>
             <select 
               value={selectedContact} 
               onChange={(e) => setSelectedContact(e.target.value)} 
@@ -178,13 +187,14 @@ export default function AdvancedSalesClient({
 
         {/* SEPET LİSTESİ */}
         <div className="flex-grow overflow-x-auto">
-          <table className="w-full min-w-[600px] border-separate border-spacing-y-2">
+          <table className="w-full min-w-[700px] border-separate border-spacing-y-2">
             <thead>
               <tr className="text-left text-[11px] font-black uppercase text-slate-300">
-                <th className="px-4 pb-2">Ürün Bilgisi</th>
+                <th className="px-4 pb-2">Parça Bilgisi</th>
                 <th className="text-center pb-2">Miktar</th>
+                <th className="text-center pb-2">KDV</th>
                 <th className="text-right pb-2">Birim Fiyat</th>
-                <th className="text-right pb-2">Ara Toplam</th>
+                <th className="text-right pb-2">Toplam (KDVli)</th>
                 <th className="w-10"></th>
               </tr>
             </thead>
@@ -200,24 +210,35 @@ export default function AdvancedSalesClient({
                       type="number" 
                       value={item.quantity} 
                       onChange={(e) => setBasket(basket.map(i => i.id === item.id ? {...i, quantity: Math.max(1, +e.target.value)} : i))} 
-                      className={`w-16 text-center p-2 rounded-xl font-black text-sm border-2 transition-all 
+                      className={`w-16 text-center p-2 rounded-xl font-black text-sm border-2 transition-all text-slate-900
                         ${!isPurchase && item.quantity > item.stock_count ? 'border-red-500 bg-red-50 text-red-600' : 'border-transparent bg-white'}
                       `} 
                     />
+                  </td>
+                  <td className="bg-slate-50 p-4 text-center">
+                    <select 
+                      value={item.tax_rate}
+                      onChange={(e) => setBasket(basket.map(i => i.id === item.id ? {...i, tax_rate: +e.target.value} : i))}
+                      className="bg-white p-2 rounded-xl font-black text-xs border-2 border-transparent focus:border-slate-300 text-slate-800"
+                    >
+                      <option value={20}>%20</option>
+                      <option value={10}>%10</option>
+                      <option value={0}>%0</option>
+                    </select>
                   </td>
                   <td className="bg-slate-50 p-4 text-right">
                     <input 
                       type="number" 
                       value={item.unit_price} 
                       onChange={(e) => setBasket(basket.map(i => i.id === item.id ? {...i, unit_price: +e.target.value} : i))} 
-                      className="w-24 text-right p-2 rounded-xl font-black text-sm bg-white border-2 border-transparent focus:border-slate-300 outline-none" 
+                      className="w-24 text-right p-2 rounded-xl font-black text-sm bg-white border-2 border-transparent focus:border-slate-300 outline-none text-slate-900" 
                     />
                   </td>
                   <td className="bg-slate-50 p-4 text-right font-black text-slate-900">
-                    {(item.quantity * item.unit_price).toLocaleString('tr-TR')} TL
+                    {(item.quantity * item.unit_price * (1 + item.tax_rate / 100)).toLocaleString('tr-TR', { minimumFractionDigits: 2 })} TL
                   </td>
                   <td className="bg-slate-50 p-4 rounded-r-2xl text-center">
-                    <button onClick={() => setBasket(basket.filter(i => i.id !== item.id))} className="text-slate-300 hover:text-red-500 transition-colors">✕</button>
+                    <button onClick={() => setBasket(basket.filter(i => i.id !== item.id))} className="text-slate-300 hover:text-red-500 transition-colors font-bold">✕</button>
                   </td>
                 </tr>
               ))}
@@ -227,18 +248,26 @@ export default function AdvancedSalesClient({
         </div>
 
         {/* ALT TOPLAM VE AKSİYON */}
-        <div className="mt-8 pt-8 border-t-4 border-slate-900 flex flex-col md:flex-row justify-between items-center gap-8">
-          <div className="text-center md:text-left">
-            <p className={`text-[11px] font-black ${theme.text} uppercase tracking-[0.4em] mb-1`}>Genel Toplam</p>
+        <div className="mt-8 pt-8 border-t-4 border-slate-900 flex flex-col md:flex-row justify-between items-end gap-8">
+          <div className="space-y-1 text-right md:text-left w-full md:w-auto">
+            <div className="flex justify-between md:justify-start md:gap-10 text-slate-400 font-bold text-xs uppercase">
+              <span>Ara Toplam:</span>
+              <span>{totals.subtotal.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} TL</span>
+            </div>
+            <div className="flex justify-between md:justify-start md:gap-10 text-slate-400 font-bold text-xs uppercase">
+              <span>Toplam KDV:</span>
+              <span>{totals.taxTotal.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} TL</span>
+            </div>
+            <p className={`text-[11px] font-black ${theme.text} uppercase tracking-[0.4em] pt-2`}>Genel Toplam</p>
             <h2 className="text-5xl md:text-7xl font-black italic tracking-tighter text-slate-900 leading-none">
-              {totals.grandTotal.toLocaleString('tr-TR')} <span className="text-2xl not-italic font-bold text-slate-400">TL</span>
+              {totals.grandTotal.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} <span className="text-2xl not-italic font-bold text-slate-400">TL</span>
             </h2>
           </div>
           
           <button 
             disabled={isPending || basket.length === 0}
             onClick={handleSave}
-            className={`w-full md:w-auto ${isPending ? 'bg-slate-200 cursor-not-allowed' : theme.bg + ' ' + theme.hover} text-white px-12 py-6 rounded-[28px] font-black text-xl shadow-2xl transition-all active:scale-95`}
+            className={`w-full md:w-auto ${isPending ? 'bg-slate-200 cursor-not-allowed text-slate-400' : theme.bg + ' ' + theme.hover + ' text-white'} px-12 py-6 rounded-[28px] font-black text-xl shadow-2xl transition-all active:scale-95`}
           >
             {isPending ? 'KAYDEDİLİYOR...' : theme.button}
           </button>

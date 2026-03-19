@@ -2,46 +2,64 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import { X, User, Phone, MapPin, Hash, Building2, Save } from 'lucide-react';
+import { 
+  X, User, Phone, MapPin, Hash, Building2, Save, 
+  Loader2, Info, Briefcase, UserCircle2, Globe 
+} from 'lucide-react';
 
 interface ContactModalProps {
   contact?: any;
   isOpen: boolean;
   onClose: () => void;
-  onSuccess: () => void; // Veri güncellendiğinde listeyi yenilemek için
+  onSuccess: () => void;
 }
 
 export function ContactModal({ contact, isOpen, onClose, onSuccess }: ContactModalProps) {
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
+    first_name: '',
+    last_name: '',
     type: 'customer',
+    is_company: true,
     phone: '',
-    address: '',
+    email: '',
     tax_office: '',
     tax_number: '',
+    address: '',
+    city: 'Isparta', // Varsayılan merkezimiz
+    district: '',
+    country: 'Türkiye',
+    invoice_scenario: 'Temel Fatura'
   });
 
-  // Düzenleme modundaysak verileri doldur
   useEffect(() => {
-    if (contact) {
-      setFormData({
-        name: contact.name || '',
-        type: contact.type || 'customer',
-        phone: contact.phone || '',
-        address: contact.address || '',
-        tax_office: contact.tax_office || '',
-        tax_number: contact.tax_number || '',
-      });
-    } else {
-      setFormData({
-        name: '',
-        type: 'customer',
-        phone: '',
-        address: '',
-        tax_office: '',
-        tax_number: '',
-      });
+    if (isOpen) {
+      if (contact) {
+        setFormData({
+          name: contact.name || '',
+          first_name: contact.first_name || '',
+          last_name: contact.last_name || '',
+          type: contact.type || 'customer',
+          is_company: contact.is_company ?? true,
+          phone: contact.phone || '',
+          email: contact.email || '',
+          tax_office: contact.tax_office || '',
+          tax_number: contact.tax_number || '',
+          address: contact.address || '',
+          city: contact.city || 'Isparta',
+          district: contact.district || '',
+          country: contact.country || 'Türkiye',
+          invoice_scenario: contact.invoice_scenario || 'Temel Fatura'
+        });
+      } else {
+        setFormData({
+          name: '', first_name: '', last_name: '', type: 'customer',
+          is_company: true, phone: '', email: '', tax_office: '',
+          tax_number: '', address: '', city: 'Isparta', district: '',
+          country: 'Türkiye', invoice_scenario: 'Temel Fatura'
+        });
+      }
     }
   }, [contact, isOpen]);
 
@@ -49,26 +67,29 @@ export function ContactModal({ contact, isOpen, onClose, onSuccess }: ContactMod
     e.preventDefault();
     setLoading(true);
 
+    // SQL Şemasına uygun veri paketi
+    const payload = {
+      ...formData,
+      name: formData.is_company 
+        ? formData.name.toUpperCase() 
+        : `${formData.first_name} ${formData.last_name}`.toUpperCase()
+    };
+
     try {
+      let error;
       if (contact?.id) {
-        // GÜNCELLEME
-        const { error } = await supabase
-          .from('contacts')
-          .update(formData)
-          .eq('id', contact.id);
-        if (error) throw error;
+        const { error: err } = await supabase.from('contacts').update(payload).eq('id', contact.id);
+        error = err;
       } else {
-        // YENİ KAYIT
-        const { error } = await supabase
-          .from('contacts')
-          .insert([formData]);
-        if (error) throw error;
+        const { error: err } = await supabase.from('contacts').insert([payload]);
+        error = err;
       }
       
-      onSuccess(); // Sayfayı yenilet
-      onClose();   // Modalı kapat
+      if (error) throw error;
+      onSuccess();
+      onClose();
     } catch (error: any) {
-      alert('Hata oluştu: ' + error.message);
+      alert('Veritabanı Hatası: ' + error.message);
     } finally {
       setLoading(false);
     }
@@ -77,144 +98,143 @@ export function ContactModal({ contact, isOpen, onClose, onSuccess }: ContactMod
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-6 isolate">
-      {/* Backdrop (Arka Plan Karartma) */}
-      <div 
-        className="fixed inset-0 bg-slate-900/60 backdrop-blur-md transition-opacity" 
-        onClick={onClose}
-      />
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-2 sm:p-6 isolate">
+      <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm" onClick={onClose}/>
 
-      {/* Modal Gövdesi */}
-      <div className="relative bg-white w-full max-w-2xl rounded-[40px] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[95vh]">
+      <div className="relative bg-white w-full max-w-3xl rounded-[40px] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300 flex flex-col max-h-[95vh]">
         
         {/* Header */}
-        <div className="p-8 border-b border-slate-50 flex justify-between items-center bg-white">
+        <div className="p-6 md:p-8 border-b border-slate-50 flex justify-between items-center bg-white sticky top-0 z-20">
           <div>
             <h2 className="text-2xl font-black tracking-tighter uppercase italic text-slate-900">
-              {contact ? 'Cari Düzenle' : 'Yeni Cari Kaydı'}
+              {contact ? 'Cari Bilgilerini Güncelle' : 'Yeni Paydaş Kaydı'}
             </h2>
-            <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-1">
-              {contact ? 'Mevcut bilgileri güncelliyorsunuz' : 'Sisteme yeni paydaş ekleyin'}
-            </p>
+            <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mt-1">Memonex ERP / Contacts v2.0</p>
           </div>
-          <button 
-            onClick={onClose}
-            className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-400 hover:bg-red-50 hover:text-red-500 transition-all"
-          >
-            <X size={24} />
+          <button onClick={onClose} className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 hover:bg-red-50 hover:text-red-500 transition-all">
+            <X size={20} />
           </button>
         </div>
 
-        {/* Form İçeriği */}
-        <form onSubmit={handleSubmit} className="p-8 overflow-y-auto space-y-6 custom-scrollbar">
+        <form onSubmit={handleSubmit} className="p-6 md:p-8 overflow-y-auto space-y-8 custom-scrollbar">
           
-          {/* İsim ve Tip */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Seçenekler: Cari Tipi ve Şirket/Şahıs Ayrımı */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-2">Cari Adı / Ünvan</label>
-              <div className="relative">
-                <User className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
+              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-2">Cari Rolü</label>
+              <div className="flex p-1 bg-slate-100 rounded-2xl">
+                {['customer', 'supplier', 'both'].map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => setFormData({...formData, type: t})}
+                    className={`flex-1 py-2 rounded-xl font-black text-[9px] uppercase transition-all ${formData.type === t ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400'}`}
+                  >
+                    {t === 'customer' ? 'Müşteri' : t === 'supplier' ? 'Tedarikçi' : 'Hibrit'}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-2">İşletme Türü</label>
+              <div className="flex p-1 bg-slate-100 rounded-2xl">
+                <button
+                  type="button"
+                  onClick={() => setFormData({...formData, is_company: true})}
+                  className={`flex-1 py-2 rounded-xl font-black text-[9px] uppercase transition-all flex items-center justify-center gap-2 ${formData.is_company ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400'}`}
+                >
+                  <Briefcase size={12} /> KURUMSAL
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFormData({...formData, is_company: false})}
+                  className={`flex-1 py-2 rounded-xl font-black text-[9px] uppercase transition-all flex items-center justify-center gap-2 ${!formData.is_company ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400'}`}
+                >
+                  <UserCircle2 size={12} /> BİREYSEL
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Dinamik İsim Alanları */}
+          <div className="space-y-4">
+            {formData.is_company ? (
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-2">Ticari Ünvan</label>
                 <input 
-                  required
-                  className="w-full bg-slate-50 border-2 border-slate-50 rounded-2xl py-4 pl-12 pr-4 focus:border-blue-500 focus:bg-white outline-none transition-all font-bold text-slate-700 placeholder:text-slate-300"
-                  placeholder="Örn: Memonex Otomotiv"
+                  className="w-full bg-slate-50 border-2 border-slate-50 rounded-2xl py-4 px-6 focus:border-blue-500 focus:bg-white outline-none transition-all font-black italic text-lg shadow-sm"
+                  placeholder="Memonex Otomotiv Ltd. Şti."
                   value={formData.name}
                   onChange={(e) => setFormData({...formData, name: e.target.value})}
                 />
               </div>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-2">Cari Tipi</label>
-              <div className="flex p-1 bg-slate-50 rounded-2xl border-2 border-slate-50">
-                <button
-                  type="button"
-                  onClick={() => setFormData({...formData, type: 'customer'})}
-                  className={`flex-1 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${formData.type === 'customer' ? 'bg-white text-blue-600 shadow-sm border border-blue-50' : 'text-slate-400'}`}
-                >
-                  MÜŞTERİ
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setFormData({...formData, type: 'supplier'})}
-                  className={`flex-1 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${formData.type === 'supplier' ? 'bg-white text-amber-600 shadow-sm border border-amber-50' : 'text-slate-400'}`}
-                >
-                  TEDARİKÇİ
-                </button>
+            ) : (
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-2">Ad</label>
+                  <input className="w-full bg-slate-50 border-2 border-slate-50 rounded-2xl py-4 px-6 font-black outline-none focus:border-blue-500" value={formData.first_name} onChange={(e) => setFormData({...formData, first_name: e.target.value})} />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-2">Soyad</label>
+                  <input className="w-full bg-slate-50 border-2 border-slate-50 rounded-2xl py-4 px-6 font-black outline-none focus:border-blue-500" value={formData.last_name} onChange={(e) => setFormData({...formData, last_name: e.target.value})} />
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
-          {/* Telefon ve Vergi No */}
+          {/* İletişim ve Konum */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
-              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-2">Telefon</label>
-              <div className="relative">
-                <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
-                <input 
-                  className="w-full bg-slate-50 border-2 border-slate-50 rounded-2xl py-4 pl-12 pr-4 focus:border-blue-500 focus:bg-white outline-none transition-all font-bold"
-                  placeholder="05xx xxx xx xx"
-                  value={formData.phone}
-                  onChange={(e) => setFormData({...formData, phone: e.target.value})}
-                />
+              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-2">Telefon & E-Posta</label>
+              <div className="flex flex-col gap-2">
+                <input className="w-full bg-slate-50 border-2 border-slate-100 rounded-xl py-3 px-4 text-sm font-bold" placeholder="05xx..." value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} />
+                <input className="w-full bg-slate-50 border-2 border-slate-100 rounded-xl py-3 px-4 text-sm font-bold" placeholder="email@memonex.com" value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} />
               </div>
             </div>
+
             <div className="space-y-2">
-              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-2">Vergi Dairesi / No</label>
+              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-2">Vergi Bilgileri</label>
               <div className="grid grid-cols-2 gap-2">
-                <div className="relative">
-                  <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" size={16} />
-                  <input 
-                    className="w-full bg-slate-50 border-2 border-slate-50 rounded-xl py-4 pl-10 pr-2 focus:border-blue-500 focus:bg-white outline-none transition-all text-xs font-bold"
-                    placeholder="V.D."
-                    value={formData.tax_office}
-                    onChange={(e) => setFormData({...formData, tax_office: e.target.value})}
-                  />
-                </div>
-                <div className="relative">
-                  <Hash className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" size={16} />
-                  <input 
-                    className="w-full bg-slate-50 border-2 border-slate-50 rounded-xl py-4 pl-10 pr-2 focus:border-blue-500 focus:bg-white outline-none transition-all text-xs font-bold"
-                    placeholder="V.No"
-                    value={formData.tax_number}
-                    onChange={(e) => setFormData({...formData, tax_number: e.target.value})}
-                  />
-                </div>
+                <input className="w-full bg-slate-50 border-2 border-slate-100 rounded-xl py-3 px-4 text-xs font-black" placeholder="V. Dairesi" value={formData.tax_office} onChange={(e) => setFormData({...formData, tax_office: e.target.value})} />
+                <input className="w-full bg-slate-50 border-2 border-slate-100 rounded-xl py-3 px-4 text-xs font-black" placeholder="V. No / TC" value={formData.tax_number} onChange={(e) => setFormData({...formData, tax_number: e.target.value})} />
               </div>
             </div>
           </div>
 
-          {/* Adres */}
-          <div className="space-y-2">
-            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-2">Adres</label>
-            <div className="relative">
-              <MapPin className="absolute left-4 top-6 text-slate-300" size={18} />
-              <textarea 
-                className="w-full bg-slate-50 border-2 border-slate-50 rounded-3xl py-4 pl-12 pr-4 focus:border-blue-500 focus:bg-white outline-none transition-all font-bold min-h-[120px] resize-none"
-                placeholder="Açık adres bilgilerini buraya girin..."
-                value={formData.address}
-                onChange={(e) => setFormData({...formData, address: e.target.value})}
-              />
-            </div>
-          </div>
-
-          {/* Submit Butonu */}
-          <div className="pt-4">
-            <button 
-              disabled={loading}
-              className="w-full bg-slate-900 text-white py-5 rounded-[24px] font-black text-xs uppercase tracking-[0.2em] hover:bg-blue-600 shadow-xl shadow-slate-200 transition-all flex items-center justify-center gap-3 active:scale-[0.98] disabled:opacity-50"
-            >
-              {loading ? (
-                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              ) : (
-                <>
-                  <Save size={18} />
-                  KAYDI TAMAMLA
-                </>
-              )}
-            </button>
+          {/* Adres Bölümü (Şehir/İlçe SQL Uyumlu) */}
+          <div className="space-y-4">
+             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-2">Şehir</label>
+                  <input className="w-full bg-slate-100 border-none rounded-xl py-3 px-4 text-xs font-black" value={formData.city} onChange={(e) => setFormData({...formData, city: e.target.value})} />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-2">İlçe</label>
+                  <input className="w-full bg-slate-50 border-2 border-slate-100 rounded-xl py-3 px-4 text-xs font-black" placeholder="Örn: Merkez" value={formData.district} onChange={(e) => setFormData({...formData, district: e.target.value})} />
+                </div>
+                <div className="space-y-2 md:col-span-1 col-span-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-2">Senaryo</label>
+                  <select className="w-full bg-slate-50 border-2 border-slate-100 rounded-xl py-3 px-4 text-xs font-black outline-none" value={formData.invoice_scenario} onChange={(e) => setFormData({...formData, invoice_scenario: e.target.value})}>
+                    <option>Temel Fatura</option>
+                    <option>Ticari Fatura</option>
+                  </select>
+                </div>
+             </div>
+             <textarea className="w-full bg-slate-50 border-2 border-slate-50 rounded-[24px] py-4 px-6 font-bold text-sm min-h-[100px] resize-none" placeholder="Tam Adres Detayı..." value={formData.address} onChange={(e) => setFormData({...formData, address: e.target.value})} />
           </div>
         </form>
+
+        {/* Footer Action */}
+        <div className="p-6 md:p-8 border-t border-slate-50 bg-slate-50/50">
+          <button 
+            onClick={handleSubmit}
+            disabled={loading}
+            className="w-full bg-slate-900 text-white py-5 rounded-[24px] font-black text-xs uppercase tracking-[0.3em] italic hover:bg-blue-600 transition-all flex items-center justify-center gap-4 shadow-xl shadow-slate-200 active:scale-95 disabled:opacity-50"
+          >
+            {loading ? <Loader2 className="animate-spin" /> : <><Save size={18} /> KAYDI VERİTABANINA İŞLE</>}
+          </button>
+        </div>
       </div>
     </div>
   );

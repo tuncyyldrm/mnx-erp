@@ -11,7 +11,11 @@ export type PaymentMethod = 'cash' | 'bank_transfer' | 'credit_card'
 // Sayısal değerleri güvenli hale getiren yardımcı fonksiyon
 const toNumber = (val: any) => (Number.isFinite(+val) ? +val : 0)
 
-// --- ÜRÜN İŞLEMLERİ (STOK) ---
+/**
+ * --- ÜRÜN İŞLEMLERİ (STOK) ---
+ * Ürün bilgilerini günceller veya yeni ürün ekler.
+ * Stok miktarı (stock_count) burada dokunulmaz, DB hareketlerden hesaplar.
+ */
 export async function saveProduct(data: any) {
   try {
     const { error } = await supabase.from('products').upsert({
@@ -23,13 +27,15 @@ export async function saveProduct(data: any) {
       category: data.category,
       purchase_price: toNumber(data.purchase_price),
       sell_price: toNumber(data.sell_price),
+      tax_rate: toNumber(data.tax_rate) || 20,
       image_url: data.image_url || null,
-      // stock_count burada gönderilmiyor çünkü tetikleyiciler hareketlere göre hesaplayacak
       critical_limit: Math.floor(toNumber(data.critical_limit) || 5),
       shelf_no: data.shelf_no?.toUpperCase(),
       updated_at: new Date().toISOString(),
-      is_deleted: false
+      is_deleted: false,
+      is_active: true
     })
+
     if (error) throw error
     revalidatePath('/stok')
     return { success: true }
@@ -38,7 +44,9 @@ export async function saveProduct(data: any) {
   }
 }
 
-// --- CARİ İŞLEMLERİ ---
+/**
+ * --- CARİ İŞLEMLERİ ---
+ */
 export async function saveContact(data: any) {
   try {
     const { error } = await supabase.from('contacts').upsert({
@@ -50,9 +58,12 @@ export async function saveContact(data: any) {
       phone: data.phone,
       email: data.email,
       address: data.address,
+      district: data.district,
+      city: data.city,
+      is_company: data.is_company ?? true,
       is_deleted: false
-      // balance gönderilmiyor, DB SUM ile hesaplıyor.
     })
+
     if (error) throw error
     revalidatePath('/cariler')
     return { success: true }
@@ -61,7 +72,9 @@ export async function saveContact(data: any) {
   }
 }
 
-// --- FİNANS (TAHSİLAT / ÖDEME) ---
+/**
+ * --- FİNANS (TAHSİLAT / ÖDEME) ---
+ */
 export async function addFinanceEntry(data: {
   contact_id: string;
   type: FinanceType;
@@ -73,8 +86,6 @@ export async function addFinanceEntry(data: {
     const amount = Math.abs(toNumber(data.amount))
     if (amount <= 0) throw new Error("Geçerli bir tutar giriniz.")
 
-    // Sadece insert yapıyoruz. DB tetikleyicisi 'fn_recalc_contact_balance' 
-    // anında carinin yeni bakiyesini hesaplayacak.
     const { error } = await supabase.from('finance_logs').insert([{
       contact_id: data.contact_id,
       amount,
@@ -93,93 +104,129 @@ export async function addFinanceEntry(data: {
   }
 }
 
-export async function deleteFinanceEntry(id: string) {
-  try {
-    // Kayıt silindiğinde DB tetikleyicisi bakiyeyi otomatik geri düzeltecek.
-    const { error } = await supabase.from('finance_logs').delete().eq('id', id)
-    if (error) throw error
-
-    revalidatePath('/finans')
-    revalidatePath('/cariler')
-    return { success: true }
-  } catch (err: any) {
-    return { success: false, error: err.message }
-  }
-}
-
-// --- FATURA / İŞLEM (SATIŞ / ALIM) ---
+/**
+ * --- FATURA / İŞLEM (SATIŞ / ALIM) ---
+ * Memonex ERP'nin kalbi. Hem Transaction hem Item kayıtlarını yapar.
+ * Veritabanı tetikleyicileri sayesinde stok ve bakiye otomatik güncellenir.
+ */
 export async function createTransaction(data: {
-  contact_id: string
-  type: TransactionType
-  doc_no?: string
-  description?: string
-  items: { product_id: string; quantity: number; unit_price: number }[]
+  contact_id: string;
+  type: TransactionType;
+  invoice_type?: 'SATIS' | 'IADE' | 'TEVKIFAT' | 'ISTISNA';
+  doc_no?: string;
+  items: { 
+    product_id: string; 
+    quantity: number; 
+    unit_price: number; 
+    tax_rate: number; 
+  }[];
+  description?: string;
 }) {
   try {
-    if (!data.items?.length) throw new Error("Ürün seçilmedi.");
+    if (!data.items?.length) throw new Error("İşlem için en az bir ürün seçilmelidir.");
 
-    const totalAmount = data.items.reduce((sum, i) => 
-      sum + (toNumber(i.quantity) * toNumber(i.unit_price)), 0
-    );
+    let subtotal = 0;
+    let tax_total = 0;
 
-    // 1. Transaction Başlığı (Bakiye tetikleyicisi buraya bağlı)
+    // 1. Kalemleri ve Toplamları Hesapla
+    const itemsPayload = data.items.map(i => {
+      const q = Math.abs(toNumber(i.quantity));
+      const p = Math.abs(toNumber(i.unit_price));
+      const tr = i.tax_rate ?? 20;
+      
+      const line_subtotal = q * p;
+      const line_tax = (line_subtotal * tr) / 100;
+      
+      subtotal += line_subtotal;
+      tax_total += line_tax;
+
+      return {
+        product_id: i.product_id,
+        quantity: q,
+        unit_price: p,
+        tax_rate: tr,
+        tax_amount: Number(line_tax.toFixed(2)),
+        line_total: Number((line_subtotal + line_tax).toFixed(2)),
+        net_unit_price: p // İndirim yoksa birim fiyat net fiyattır
+      };
+    });
+
+    const grand_total = subtotal + tax_total;
+
+    // 2. Transaction Başlığını Oluştur
     const { data: trans, error: tError } = await supabase
       .from('transactions')
       .insert([{
         contact_id: data.contact_id,
         type: data.type,
-        doc_no: data.doc_no || `TR-${Date.now().toString(36).toUpperCase()}`,
-        total_amount: totalAmount,
-        description: data.description
+        invoice_type: data.invoice_type || 'SATIS',
+        doc_no: data.doc_no || `MNX${new Date().getFullYear()}${Date.now().toString().slice(-6)}`,
+        ett_no: crypto.randomUUID(), // E-Fatura uyumu için zorunlu
+        subtotal: Number(subtotal.toFixed(2)),
+        tax_total: Number(tax_total.toFixed(2)),
+        total_amount: Number(grand_total.toFixed(2)),
+        description: data.description || `Memonex ${data.type} işlemi`,
+        status: 'onaylandi'
       }])
       .select('id').single();
 
     if (tError) throw tError;
 
-    // 2. Transaction Kalemleri (Stok tetikleyicisi buraya bağlı)
-    const itemsPayload = data.items.map(i => ({
-      transaction_id: trans.id,
-      product_id: i.product_id,
-      quantity: Math.floor(toNumber(i.quantity)),
-      unit_price: toNumber(i.unit_price),
-      line_total: toNumber(i.quantity) * toNumber(i.unit_price)
+    // 3. Kalemleri Kaydet (Transaction Items)
+    const finalItems = itemsPayload.map(item => ({ 
+      ...item, 
+      transaction_id: trans.id 
     }));
 
-    const { error: iError } = await supabase.from('transaction_items').insert(itemsPayload);
+    const { error: iError } = await supabase.from('transaction_items').insert(finalItems);
     
     if (iError) {
-      // Kalemler eklenemezse atomik yapıyı korumak için başlığı siliyoruz
+      // Kalemler eklenemezse başlığı sil (Rollback simülasyonu)
       await supabase.from('transactions').delete().eq('id', trans.id);
       throw iError;
     }
 
-    revalidatePath('/')
-    revalidatePath('/stok')
-    revalidatePath('/cariler')
-    revalidatePath('/islemler')
-    return { success: true };
+    // Yolları temizle (Cache Refresh)
+    revalidatePath('/stok');
+    revalidatePath('/cariler');
+    revalidatePath('/islemler');
+    
+    return { success: true, id: trans.id };
   } catch (err: any) {
+    console.error("Transaction Error:", err);
     return { success: false, error: err.message };
   }
 }
 
+/**
+ * --- SİLME İŞLEMLERİ (SOFT & HARD DELETE) ---
+ */
 export async function deleteTransaction(id: string) {
   try {
-    // SADECE SİLİYORUZ. DB'deki AFTER DELETE tetikleyicileri (Transactions ve Items üzerinde)
-    // bakiyeyi ve stoğu otomatik olarak SIFIRDAN TEKRAR toplayacak.
+    // ÖNEMLİ: SQL'de ON DELETE CASCADE tanımlıysa tek hamlede her şey silinir.
     const { error } = await supabase.from('transactions').delete().eq('id', id);
-    if (error) throw error;
+    
+    if (error) {
+      // Eğer hala FK hatası alıyorsan, bu mesaj kullanıcıya daha net bilgi verir.
+      if (error.code === '23503') {
+        throw new Error("Bu işleme bağlı stok hareketleri var. Lütfen önce veritabanında CASCADE ayarını yapın.");
+      }
+      throw error;
+    }
 
-    revalidatePath('/cariler')
-    revalidatePath('/stok')
-    revalidatePath('/islemler')
-    return { success: true }
+    // Tüm etkilenen sayfaları tazele
+    revalidatePath('/stok');
+    revalidatePath('/cariler');
+    revalidatePath('/islemler');
+    revalidatePath('/finans'); 
+    
+    return { success: true };
   } catch (err: any) {
-    return { success: false, error: err.message }
+    console.error("Silme Hatası:", err);
+    return { success: false, error: err.message };
   }
 }
 
-// --- SİLME İŞLEMLERİ (SOFT DELETE) ---
 export async function deleteContact(contactId: string) {
   try {
     const { error } = await supabase.from('contacts').update({ is_deleted: true }).eq('id', contactId)
@@ -196,6 +243,19 @@ export async function deleteProduct(productId: string) {
     const { error } = await supabase.from('products').update({ is_deleted: true }).eq('id', productId)
     if (error) throw error
     revalidatePath('/stok')
+    return { success: true }
+  } catch (err: any) {
+    return { success: false, error: err.message }
+  }
+}
+// --- FİNANS (TAHSİLAT / ÖDEME) ---
+export async function deleteFinanceEntry(id: string) { // <--- 'export' başında olmalı
+  try {
+    const { error } = await supabase.from('finance_logs').delete().eq('id', id)
+    if (error) throw error
+
+    revalidatePath('/finans')
+    revalidatePath('/cariler')
     return { success: true }
   } catch (err: any) {
     return { success: false, error: err.message }
