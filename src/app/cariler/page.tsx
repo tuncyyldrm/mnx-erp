@@ -253,7 +253,8 @@ function CariCard({ c, onEdit, onSuccess, onNavigate }: any) {
           <div className={`text-[9px] font-black px-4 py-2 rounded-xl border uppercase tracking-widest italic ${typeConfig[c.type as keyof typeof typeConfig].class}`}>
             {typeConfig[c.type as keyof typeof typeConfig].label}
           </div>
-          <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-all transform translate-x-4 group-hover:translate-x-0">
+          {/* opacity-0 yerine md:opacity-0 kullanarak mobilde varsayılanı görünür yapıyoruz */}
+          <div className="flex gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-all transform translate-x-0 md:translate-x-4 md:group-hover:translate-x-0">
             <button onClick={onEdit} className="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center text-slate-400 hover:bg-slate-900 hover:text-white transition-all shadow-sm">
               <FileText size={18} />
             </button>

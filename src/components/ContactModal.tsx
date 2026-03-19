@@ -98,8 +98,11 @@ export function ContactModal({ contact, isOpen, onClose, onSuccess }: ContactMod
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-2 sm:p-6 isolate">
-      <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm" onClick={onClose}/>
+// Yeni: z-[999] veya en azından navigasyondan yüksek bir değer
+<div className="fixed inset-0 z-[999] flex items-center justify-center p-2 sm:p-6">
+  {/* Backdrop */}
+  <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm" onClick={onClose}/>
+  {/* Modal Content */}
 
       <div className="relative bg-white w-full max-w-3xl rounded-[40px] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300 flex flex-col max-h-[95vh]">
         
