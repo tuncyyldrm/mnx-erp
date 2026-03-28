@@ -98,27 +98,37 @@ setFormData(prev => ({ ...prev, image_url: cacheBusterUrl }));
     ? (((formData.sell_price - formData.purchase_price) / formData.purchase_price) * 100).toFixed(0) 
     : 0;
 
-const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => { // e tipini düzelttik
+const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
   e.preventDefault();
   setLoading(true);
   
   try {
-    // Mevcut stok ile farkı toplayıp yeni stok değerini hesaplıyoruz
     const currentStock = Number(formData.stock_count) || 0;
     const adjustment = Number(formData.adjustment_amount) || 0;
     const finalStock = currentStock + adjustment;
 
     const result = await saveProduct({
       ...formData,
-      stock_count: finalStock, // Veritabanına gidecek gerçek rakam
-      is_adjustment: adjustment !== 0 // Eğer fark 0 değilse hareket kaydı oluşturması için
+      stock_count: finalStock,
+      is_adjustment: adjustment !== 0 
     });
 
-    if (result.success) {
-      // Başarılı olduktan sonra local state'i ve farkı sıfırlıyoruz
+if (result.success) {
+      // 1. Modal'ı kapat ve state'i temizle
       setFormData(prev => ({ ...prev, stock_count: finalStock, adjustment_amount: 0 }));
       setIsOpen(false);
-      router.refresh();
+
+      // 2. Yönlendirme ve Yenileme Mantığı
+      if (formData.id) {
+        // Zaten bu sayfadaysak (düzenleme modu), refresh bazen yetmez.
+        // Sayfayı tam yenileme (hard reload) yaparak tüm Server Component verilerini çekeriz.
+        window.location.reload(); 
+      } else {
+        // Yeni ürün eklendiyse listeye yönlendir ve tazele
+        router.push('/stok'); // Veya senin ana stok listen neredeyse
+        router.refresh();
+      }
+      
     } else {
       alert(`Hata: ${result.error}`);
     }
@@ -196,7 +206,7 @@ const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => { // e tipin
   <div className="flex-grow space-y-2">
     <div>
       <label className="text-[10px] font-black text-slate-500 uppercase block mb-1 tracking-widest italic">
-        {formData.image_url ? 'Görseli Değiştir' : 'Parça Fotoğrafı'}
+        {formData.image_url ? 'Görseli Değiştir' : 'Ürün Fotoğrafı'}
       </label>
       <div className="relative">
         {/* Gizli input'u tetikleyen şık bir buton */}

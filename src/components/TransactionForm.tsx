@@ -165,19 +165,19 @@ export function TransactionForm({ products, contacts }: { products: any[], conta
 
         {/* Kalemler */}
         <div className="space-y-4">
-          <label className="text-[11px] font-black text-slate-900 uppercase tracking-[0.2em] ml-2">Kalemler / Parçalar</label>
+          <label className="text-[11px] font-black text-slate-900 uppercase tracking-[0.2em] ml-2">Kalemler / Ürünler</label>
           <div className="space-y-3">
             {items.map((item) => (
               <div key={item.id} className="group flex flex-col md:flex-row gap-4 items-start md:items-end bg-slate-50/50 p-5 rounded-[24px] border-2 border-transparent hover:border-slate-200 transition-all">
                 <div className="flex-[4] w-full space-y-1.5">
-                  <span className="text-[9px] font-black text-slate-400 uppercase ml-1">Parça / SKU</span>
+                  <span className="text-[9px] font-black text-slate-400 uppercase ml-1">Ürün / SKU</span>
                   <select 
                     required
                     className="w-full border-2 border-white p-3.5 rounded-xl bg-white text-sm font-bold shadow-sm outline-none focus:ring-2 focus:ring-slate-900 text-slate-900"
                     value={item.product_id}
                     onChange={(e) => updateItem(item.id, 'product_id', e.target.value)}
                   >
-                    <option value="">Parça Seç...</option>
+                    <option value="">Ürün Seç...</option>
                     {products?.map((p: any) => (
                       <option key={p.id} value={p.id}>
                         {p.sku} — {p.name?.toUpperCase()} ({p.stock_count} Adet)

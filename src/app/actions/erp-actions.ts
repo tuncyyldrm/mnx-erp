@@ -37,13 +37,13 @@ export async function saveProduct(data: any) {
       image_url: data.image_url || null,
       critical_limit: Math.floor(toNumber(data.critical_limit) || 5),
       shelf_no: data.shelf_no?.toUpperCase() || null,
-      stock_count: toNumber(data.stock_count), // KRİTİK EKSİK BURASIYDI
+      stock_count: toNumber(data.stock_count), 
       updated_at: new Date().toISOString(),
       is_deleted: false,
       is_active: true
     };
 
-    // 2. Önceki stok değerini al (Stock Movement için gerekli)
+    // 2. Önceki stok değerini al
     let prevStock = 0;
     if (data.id) {
       const { data: oldProd } = await supabase
@@ -70,13 +70,19 @@ export async function saveProduct(data: any) {
         quantity: Math.abs(adjustment),
         prev_stock: prevStock,
         next_stock: savedProduct.stock_count,
-        source_type: 'ADJUSTMENT', // Tablo kısıtına uygun
+        source_type: 'ADJUSTMENT',
         description: 'Manuel stok düzeltme yapıldı.'
       });
       if (moveError) console.error("Stok hareketi yazılamadı:", moveError.message);
     }
 
-    revalidatePath('/stok');
+    // --- SİSTEMİ BOZMADAN EKLENEN TAZELEME KOMUTLARI ---
+    revalidatePath('/stok'); // Liste sayfasını yeniler
+    if (data.id) {
+      revalidatePath(`/stok/hareketler/${data.id}`); // Detay sayfasını ve hareket tablosunu yeniler
+    }
+    // ------------------------------------------------
+
     return { success: true };
   } catch (error: any) {
     return { success: false, error: "Ürün hatası: " + error.message };

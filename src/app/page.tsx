@@ -29,7 +29,7 @@ export default async function HomePage({
   const [productsRes, contactsRes, transRes] = await Promise.all([
     supabase
       .from('products')
-      .select('id, sku, name, purchase_price, sell_price, stock_count, critical_limit, shelf_no')
+      .select('id, sku, name, purchase_price, sell_price, stock_count, critical_limit, shelf_no, image_url') // <-- image_url BURAYA EKLENDİ
       .eq('is_deleted', false),
     supabase
       .from('contacts')

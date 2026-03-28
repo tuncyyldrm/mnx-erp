@@ -130,32 +130,44 @@ export default function AdvancedSalesClient({
       <div className="lg:w-1/3 space-y-6">
         <div className="bg-white p-6 rounded-[32px] shadow-sm border border-slate-100">
           <h2 className={`font-black uppercase italic ${theme.text} mb-4 flex items-center gap-2`}>
-            {isPurchase ? '📦 Mal Kabul' : '🛒 Parça Çıkışı'}
+            {isPurchase ? '📦 Mal Kabul' : '🛒 Ürün Çıkışı'}
           </h2>
           <input 
             className={`w-full p-4 bg-slate-100 rounded-2xl border-2 border-transparent ${theme.border} outline-none font-bold transition-all text-slate-900`}
-            placeholder="SKU veya Parça Ara..."
+            placeholder="SKU veya Ürün Ara..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
 
         <div className="space-y-3">
-          {filteredProducts.map((p: any) => (
-            <div 
-              key={p.id} 
-              onClick={() => addToBasket(p)} 
-              className="bg-white p-4 rounded-2xl border-2 border-white hover:border-slate-200 cursor-pointer shadow-sm active:scale-95 transition-all"
-            >
-              <div className="flex justify-between items-start">
-                <span className="text-[10px] font-black text-slate-400">{p.sku}</span>
-                <span className={`text-[10px] font-black px-2 py-0.5 rounded ${p.stock_count > 0 ? 'bg-emerald-100 text-emerald-600' : 'bg-red-100 text-red-600'}`}>
-                  STOK: {p.stock_count}
-                </span>
-              </div>
-              <p className="text-sm font-black uppercase text-slate-800 mt-1">{p.name}</p>
-            </div>
-          ))}
+{/* SOL: ÜRÜN SEÇİCİ - Kart Tasarımı Güncellendi */}
+{filteredProducts.map((p: any) => (
+  <div 
+    key={p.id} 
+    onClick={() => addToBasket(p)} 
+    className="bg-white p-3 rounded-2xl border-2 border-white hover:border-slate-200 cursor-pointer shadow-sm active:scale-95 transition-all flex gap-3 items-center"
+  >
+    {/* Küçük Önizleme Görseli */}
+    <div className="w-12 h-12 rounded-lg bg-slate-100 flex-shrink-0 overflow-hidden border border-slate-50">
+      {p.image_url ? (
+        <img src={p.image_url} alt="" className="w-full h-full object-cover" />
+      ) : (
+        <div className="w-full h-full flex items-center justify-center text-[10px] text-slate-300 font-bold">YOK</div>
+      )}
+    </div>
+    
+    <div className="flex-grow overflow-hidden">
+      <div className="flex justify-between items-start">
+        <span className="text-[9px] font-black text-slate-400 truncate w-20 uppercase">{p.sku}</span>
+        <span className={`text-[8px] font-black px-1.5 py-0.5 rounded ${p.stock_count > 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>
+           STOK: {p.stock_count}
+        </span>
+      </div>
+      <p className="text-[11px] font-black uppercase text-slate-800 truncate leading-none mt-0.5">{p.name}</p>
+    </div>
+  </div>
+))}
         </div>
       </div>
 
@@ -190,7 +202,7 @@ export default function AdvancedSalesClient({
           <table className="w-full min-w-[700px] border-separate border-spacing-y-2">
             <thead>
               <tr className="text-left text-[11px] font-black uppercase text-slate-300">
-                <th className="px-4 pb-2">Parça Bilgisi</th>
+                <th className="px-4 pb-2">Ürün Bilgisi</th>
                 <th className="text-center pb-2">Miktar</th>
                 <th className="text-center pb-2">KDV</th>
                 <th className="text-right pb-2">Birim Fiyat</th>

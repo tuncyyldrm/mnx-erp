@@ -70,7 +70,7 @@ export function SearchInput({ defaultValue = '' }: { defaultValue?: string }) {
             inputRef.current?.blur();
           }
         }}
-        placeholder="Parça adı, SKU veya OEM..."
+        placeholder="Ürün adı, SKU veya OEM..."
         className="w-full bg-white border-2 border-slate-100 rounded-[22px] py-4 pl-14 pr-16 text-sm focus:border-blue-500 focus:ring-4 focus:ring-blue-50 outline-none transition-all font-bold shadow-sm placeholder:font-medium placeholder:text-slate-400"
       />
 

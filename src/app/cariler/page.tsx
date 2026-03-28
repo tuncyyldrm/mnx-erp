@@ -245,7 +245,7 @@ function CariCard({ c, onEdit, onSuccess, onNavigate }: any) {
   };
 
   return (
-    <div className="group bg-white border-2 border-slate-50 p-10 rounded-[56px] hover:shadow-2xl hover:border-blue-500/30 transition-all duration-500 flex flex-col justify-between min-h-[580px] relative overflow-hidden">
+    <div className="group bg-white border-2 border-slate-50 p-10 rounded-[56px] hover:shadow-2xl hover:border-blue-500/30 transition-all duration-500 flex flex-col justify-between min-h-[620px] relative overflow-hidden">
       
       {/* Kart Üst Bölümü */}
       <div>
@@ -253,8 +253,7 @@ function CariCard({ c, onEdit, onSuccess, onNavigate }: any) {
           <div className={`text-[9px] font-black px-4 py-2 rounded-xl border uppercase tracking-widest italic ${typeConfig[c.type as keyof typeof typeConfig].class}`}>
             {typeConfig[c.type as keyof typeof typeConfig].label}
           </div>
-          {/* opacity-0 yerine md:opacity-0 kullanarak mobilde varsayılanı görünür yapıyoruz */}
-          <div className="flex gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-all transform translate-x-0 md:translate-x-4 md:group-hover:translate-x-0">
+          <div className="flex gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-all">
             <button onClick={onEdit} className="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center text-slate-400 hover:bg-slate-900 hover:text-white transition-all shadow-sm">
               <FileText size={18} />
             </button>
@@ -269,53 +268,74 @@ function CariCard({ c, onEdit, onSuccess, onNavigate }: any) {
           </span>
         </div>
         
-        <h3 className="font-black text-3xl text-slate-900 tracking-tighter leading-[1.1] uppercase italic line-clamp-2 mb-6 group-hover:text-blue-600 transition-colors">
+        <h3 className="font-black text-3xl text-slate-900 tracking-tighter leading-[1.1] uppercase italic line-clamp-2 mb-6 group-hover:text-blue-600 transition-colors cursor-pointer" onClick={() => onNavigate(`/cariler/${c.id}`)}>
           {c.name}
         </h3>
         
-        <div className="space-y-4">
-          <div className="flex items-center gap-4 text-sm font-black italic text-slate-600 group/item">
-            <div className="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center text-slate-300 group-hover/item:text-blue-500 transition-colors">
+        <div className="space-y-3">
+          {/* FATURALAR / BELGELER (Yeni Eklenen Tıklanabilir Alan) */}
+          <button 
+            onClick={() => onNavigate(`/faturalar?cariId=${c.id}`)}
+            className="w-full flex items-center gap-4 text-[10px] font-black text-slate-400 hover:text-blue-600 uppercase italic transition-all group/info"
+          >
+            <div className="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center text-slate-300 group-hover/info:bg-blue-600 group-hover/info:text-white transition-all shrink-0">
+              <Briefcase size={14} />
+            </div>
+            <div className="flex flex-col items-start">
+              <span>ALIŞ / SATIŞ BELGELERİ</span>
+              <span className="text-[8px] opacity-40">TÜM FATURALARI GÖR</span>
+            </div>
+          </button>
+
+          {/* TELEFON */}
+          <a href={c.phone ? `tel:${c.phone}` : '#'} className="flex items-center gap-4 text-sm font-black italic text-slate-600 hover:text-blue-600 transition-all group/tel">
+            <div className="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center text-slate-300 group-hover/tel:bg-blue-50 group-hover/tel:text-blue-500 shrink-0">
               <Phone size={14} />
             </div>
             {c.phone || '---'}
-          </div>
-          <div className="flex items-start gap-4 text-[10px] font-black text-slate-400 uppercase italic leading-tight group/item">
-            <div className="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center text-slate-300 group-hover/item:text-blue-500 transition-colors shrink-0">
-              <MapPin size={14} />
+          </a>
+
+          {/* VERGİ / KİMLİK */}
+          <div className="flex items-center gap-4 text-[10px] font-black text-slate-300 uppercase italic">
+            <div className="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center text-slate-300 shrink-0">
+              <Hash size={14} />
             </div>
-            <span className="mt-1">
-              {c.district ? `${c.district} / ` : ''}{c.city || 'Isparta'}
-            </span>
+            VN: {c.tax_number || '---'}
           </div>
-          {c.tax_number && (
-            <div className="flex items-center gap-4 text-[10px] font-black text-slate-300 uppercase italic group/item">
-              <div className="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center text-slate-300 group-hover/item:text-blue-500 transition-colors">
-                <Hash size={14} />
-              </div>
-              VN: {c.tax_number}
-            </div>
-          )}
         </div>
       </div>
 
       {/* Bakiye ve Alt Aksiyonlar */}
-      <div className="mt-10">
-        <div className={`p-8 rounded-[40px] border-2 transition-all relative overflow-hidden ${
-          balance < 0 ? 'bg-red-50 border-red-100 text-red-700' : 
-          balance > 0 ? 'bg-emerald-50 border-emerald-100 text-emerald-700' : 
-          'bg-slate-50 border-slate-100 text-slate-400 opacity-60'
-        }`}>
-          <span className="text-[9px] font-black uppercase tracking-[0.3em] mb-2 block italic opacity-60">
-            {balance < 0 ? 'ÖDEYECEĞİMİZ' : balance > 0 ? 'ALACAĞIMIZ' : 'HESAP DENGEDE'}
-          </span>
-          <p className="text-4xl font-black tracking-tighter italic leading-none">
-            {Math.abs(balance).toLocaleString('tr-TR', { minimumFractionDigits: 2 })} 
-            <small className="text-xs font-bold ml-1.5 opacity-40 italic">TL</small>
-          </p>
-        </div>
+      <div className="mt-8">
+        {/* TIKLANABİLİR BAKİYE (Kasa giriş-çıkışlarına yönlendirir) */}
+        <button 
+          onClick={() => onNavigate(`/finans?cariId=${c.id}`)}
+          className={`w-full p-8 rounded-[40px] border-2 transition-all relative overflow-hidden text-left group/balance ${
+            balance < 0 ? 'bg-red-50 border-red-100 text-red-700 hover:bg-red-100' : 
+            balance > 0 ? 'bg-emerald-50 border-emerald-100 text-emerald-700 hover:bg-emerald-100' : 
+            'bg-slate-50 border-slate-100 text-slate-400 opacity-60 hover:opacity-100'
+          }`}
+        >
+          <div className="flex justify-between items-start">
+            <div>
+              <span className="text-[9px] font-black uppercase tracking-[0.3em] mb-2 block italic opacity-60">
+                {balance < 0 ? 'ÖDEYECEĞİMİZ' : balance > 0 ? 'ALACAĞIMIZ' : 'HESAP DENGEDE'}
+              </span>
+              <p className="text-4xl font-black tracking-tighter italic leading-none">
+                {Math.abs(balance).toLocaleString('tr-TR', { minimumFractionDigits: 2 })} 
+                <small className="text-xs font-bold ml-1.5 opacity-40 italic">TL</small>
+              </p>
+            </div>
+            <div className="bg-white/50 p-2 rounded-full opacity-0 group-hover/balance:opacity-100 transition-all">
+              <TrendingUp size={16} />
+            </div>
+          </div>
+          <div className="mt-3 text-[8px] font-black opacity-40 group-hover/balance:opacity-100 transition-all">
+            KASA HAREKETLERİNİ İNCELE →
+          </div>
+        </button>
 
-        <div className="grid grid-cols-2 gap-4 mt-8">
+        <div className="grid grid-cols-2 gap-4 mt-6">
           <button 
             onClick={() => onNavigate(`/finans?cariId=${c.id}`)}
             className="bg-slate-900 text-white py-5 rounded-[24px] font-black text-[10px] uppercase tracking-widest italic hover:bg-blue-600 transition-all flex items-center justify-center gap-2 group/btn shadow-xl shadow-slate-200"

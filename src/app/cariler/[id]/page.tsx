@@ -8,7 +8,8 @@ import Link from 'next/link';
 import { 
   ArrowLeft, Phone, MapPin, Briefcase, 
   ExternalLink, Calendar, Info,
-  TrendingUp, TrendingDown, Printer, Edit3
+  TrendingUp, TrendingDown, Printer, Edit3,
+  ReceiptText // Finans belgeleri için yeni ikon
 } from 'lucide-react';
 
 // --- TÜR TANIMLAMALARI ---
@@ -114,70 +115,21 @@ export default function CariDetayPage() {
 
   return (
     <div className="bg-[#F8FAFC] min-h-screen font-sans text-slate-900 selection:bg-blue-100 pb-20 print:bg-white print:pb-0">
-      {/* GLOBAL PRINT STYLE - TAM ÇÖZÜM */}
       <style jsx global>{`
-@media print {
-  /* 1. TÜM GEREKSİZ MENÜ VE BUTONLARI GİZLE */
-  .no-print, 
-  nav, 
-  footer:not(.print-footer), 
-  button:not(.print-only),
-  [role="navigation"],
-  .fixed, /* Ekranın altında yüzen o menüyü yakalar */
-  .sticky { 
-    display: none !important; 
-  }
-
-  /* 2. SAYFA VE KENAR BOŞLUĞU AYARI */
-  @page { 
-    size: A4; 
-    margin: 15mm; 
-  }
-
-  /* 3. İÇERİĞİ KAĞIDA YAY */
-  body { 
-    background: white !important; 
-    width: 100% !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    -webkit-print-color-adjust: exact !important;
-    print-color-adjust: exact !important;
-  }
-
-  /* 4. KARMAŞAYI ENGELLE (GÖLGE VE RADIUS SIFIRLAMA) */
-  * { 
-    box-shadow: none !important; 
-    text-shadow: none !important; 
-  }
-
-  /* Çok büyük border-radius değerlerini kağıt için makulleştir */
-  .rounded-[64px], .rounded-[72px], [class*="rounded-"] {
-    border-radius: 8px !important; 
-  }
-
-  /* 5. TABLO DÜZENİ */
-  table { 
-    page-break-inside: auto; 
-    border-collapse: collapse !important;
-  }
-  tr { 
-    page-break-inside: avoid !important; 
-    page-break-after: auto; 
-  }
-  thead { 
-    display: table-header-group !important; 
-  }
-
-  /* 6. FONT VE RENK KESKİNLİĞİ */
-  h1, h2, p, span, td {
-    color: #000 !important; /* Gri tonları bazen silik çıkar, siyaha zorla */
-  }
-}
+        @media print {
+          .no-print, nav, footer:not(.print-footer), button:not(.print-only), [role="navigation"], .fixed, .sticky { display: none !important; }
+          @page { size: A4; margin: 15mm; }
+          body { background: white !important; width: 100% !important; margin: 0 !important; padding: 0 !important; -webkit-print-color-adjust: exact !important; }
+          * { box-shadow: none !important; text-shadow: none !important; }
+          .rounded-[64px], .rounded-[72px], [class*="rounded-"] { border-radius: 8px !important; }
+          table { page-break-inside: auto; border-collapse: collapse !important; }
+          tr { page-break-inside: avoid !important; page-break-after: auto; }
+          thead { display: table-header-group !important; }
+          h1, h2, p, span, td { color: #000 !important; }
         }
       `}</style>
 
       <div className="max-w-[1400px] mx-auto px-4 py-8 md:px-12 md:py-16 print:px-0 print:py-4">
-        
         {/* ÜST BAR */}
         <div className="flex flex-col lg:flex-row justify-between items-start lg:items-end gap-10 mb-16 print:mb-8">
           <div className="space-y-8 w-full">
@@ -205,17 +157,11 @@ export default function CariDetayPage() {
           </div>
 
           <div className="no-print flex flex-wrap gap-3 w-full lg:w-auto">
-            <button 
-              onClick={handlePrint}
-              className="flex-1 lg:flex-none bg-white border-2 border-slate-100 px-8 py-5 rounded-[24px] flex items-center justify-center gap-3 hover:border-slate-900 transition-all shadow-sm active:scale-95"
-            >
+            <button onClick={handlePrint} className="flex-1 lg:flex-none bg-white border-2 border-slate-100 px-8 py-5 rounded-[24px] flex items-center justify-center gap-3 hover:border-slate-900 transition-all shadow-sm active:scale-95">
               <Printer size={18} className="text-slate-400" />
               <span className="text-[10px] font-black uppercase tracking-widest">Ekstre Yazdır</span>
             </button>
-            <button 
-              onClick={() => setIsEditModalOpen(true)}
-              className="flex-1 lg:flex-none bg-slate-900 text-white px-10 py-5 rounded-[24px] flex items-center justify-center gap-3 hover:bg-blue-600 transition-all shadow-2xl shadow-slate-200 active:scale-95"
-            >
+            <button onClick={() => setIsEditModalOpen(true)} className="flex-1 lg:flex-none bg-slate-900 text-white px-10 py-5 rounded-[24px] flex items-center justify-center gap-3 hover:bg-blue-600 transition-all shadow-2xl shadow-slate-200 active:scale-95">
               <Edit3 size={18} />
               <span className="text-[10px] font-black uppercase tracking-widest">Cariyi Düzenle</span>
             </button>
@@ -224,21 +170,14 @@ export default function CariDetayPage() {
 
         {/* KPI & BİLGİ PANELİ */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-16 print:grid-cols-2 print:gap-4 print:mb-8">
-          {/* BAKİYE KARTI - Print Sorunu Çözülmüş Hali */}
-          <div 
-            className={`${theme.bg} p-12 rounded-[64px] shadow-2xl relative overflow-hidden transition-all print:p-8 print:rounded-3xl print:shadow-none print:border-2 print:bg-white`}
-            style={{ borderColor: theme.color }} // Yazdırmada kenarlık rengini zorla
-          >
+          <div className={`${theme.bg} p-12 rounded-[64px] shadow-2xl relative overflow-hidden transition-all print:p-8 print:rounded-3xl print:shadow-none print:border-2 print:bg-white`} style={{ borderColor: theme.color }}>
             <div className="flex justify-between items-start mb-10 relative z-10 print:mb-2">
               <span className="text-white/60 text-[10px] font-black uppercase tracking-[0.3em] italic print:text-slate-500">Mevcut Bakiye</span>
               <div className="no-print">
                 {contact.balance > 0 ? <TrendingUp className="text-white/40" size={24} /> : <TrendingDown className="text-white/40" size={24} />}
               </div>
             </div>
-            <p 
-              className={`text-6xl md:text-7xl font-black italic tracking-tighter leading-none text-white relative z-10 print:text-4xl print:!text-slate-900`}
-              style={{ color: typeof window !== 'undefined' && window.matchMedia('print').matches ? '#000' : '' }}
-            >
+            <p className={`text-6xl md:text-7xl font-black italic tracking-tighter leading-none text-white relative z-10 print:text-4xl print:!text-slate-900`}>
               {Math.abs(contact.balance).toLocaleString('tr-TR', { minimumFractionDigits: 2 })} 
               <small className="text-xl opacity-40 not-italic ml-3 uppercase print:text-slate-400">TL</small>
             </p>
@@ -251,18 +190,14 @@ export default function CariDetayPage() {
           
           <div className="bg-white border-2 border-slate-100 p-12 rounded-[64px] flex flex-col justify-center gap-8 print:p-8 print:rounded-3xl print:gap-2 print:border">
             <div className="flex items-center gap-6">
-              <div className="no-print w-14 h-14 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-400">
-                <Phone size={24} />
-              </div>
+              <div className="no-print w-14 h-14 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-400"><Phone size={24} /></div>
               <div>
                 <p className="text-[10px] font-black text-slate-300 uppercase tracking-[0.2em] mb-1 print:text-slate-400">İletişim</p>
                 <p className="text-2xl font-black italic text-slate-900 tracking-tighter print:text-lg">{contact.phone || 'GİRİLMEMİŞ'}</p>
               </div>
             </div>
             <div className="flex items-start gap-6">
-              <div className="no-print w-14 h-14 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-400 shrink-0">
-                <MapPin size={24} />
-              </div>
+              <div className="no-print w-14 h-14 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-400 shrink-0"><MapPin size={24} /></div>
               <div>
                 <p className="text-[10px] font-black text-slate-300 uppercase tracking-[0.2em] mb-1 print:text-slate-400">Konum</p>
                 <p className="text-xs font-bold text-slate-500 uppercase italic tracking-tight print:text-[10px] print:text-slate-700">
@@ -278,16 +213,12 @@ export default function CariDetayPage() {
                 <Briefcase size={16} className="text-slate-300 no-print" />
                 <span className="text-[10px] font-black text-slate-300 uppercase tracking-[0.3em] italic print:text-slate-400">Resmi Kayıtlar</span>
               </div>
-              <p className="text-3xl font-black italic text-slate-900 uppercase tracking-tighter leading-none print:text-xl">
-                {contact.tax_office || 'Bireysel Cari'}
-              </p>
+              <p className="text-3xl font-black italic text-slate-900 uppercase tracking-tighter leading-none print:text-xl">{contact.tax_office || 'Bireysel Cari'}</p>
               <div className="bg-slate-900 text-white px-6 py-4 rounded-2xl text-[12px] font-black tracking-widest inline-block print:bg-slate-100 print:text-slate-900 print:border print:py-2 print:px-4 print:rounded-lg">
                 <span className="opacity-40 text-[9px]">VN:</span> {contact.tax_number || 'BELİRTİLMEMİŞ'}
               </div>
             </div>
-            <p className="text-[9px] font-black text-slate-200 uppercase tracking-[0.5em] italic mt-4 print:text-slate-400">
-              REF: {contact.id.split('-')[0]}
-            </p>
+            <p className="text-[9px] font-black text-slate-200 uppercase tracking-[0.5em] italic mt-4 print:text-slate-400">REF: {contact.id.split('-')[0]}</p>
           </div>
         </div>
 
@@ -330,9 +261,7 @@ export default function CariDetayPage() {
 
         <footer className="mt-32 pb-16 flex flex-col items-center gap-6 print:mt-10 print:pb-0">
           <div className="w-20 h-1 bg-slate-100 rounded-full print:bg-slate-900"></div>
-          <p className="text-slate-200 font-black text-[11px] uppercase tracking-[1em] italic text-center print:text-slate-900 print:tracking-[0.5em]">
-            MEMONEX INDUSTRIAL DYNAMICS
-          </p>
+          <p className="text-slate-200 font-black text-[11px] uppercase tracking-[1em] italic text-center print:text-slate-900 print:tracking-[0.5em]">MEMONEX INDUSTRIAL DYNAMICS</p>
         </footer>
       </div>
 
@@ -353,8 +282,22 @@ export default function CariDetayPage() {
 // --- YARDIMCI BİLEŞENLER ---
 
 function ActivityRow({ act }: { act: Activity }) {
-  const isDocumented = act.type === 'sale' || act.type === 'purchase';
-  const viewLink = act.type === 'sale' ? `/satis/izle/${act.id}` : `/alis/izle/${act.id}`;
+  // İzleme Linki Mantığı: Türüne göre rotayı belirler
+  const getViewConfig = () => {
+    switch(act.type) {
+      case 'sale': 
+        return { link: `/satis/izle/${act.id}`, label: 'BELGEYİ GÖR', color: 'text-blue-500' };
+      case 'purchase': 
+        return { link: `/alis/izle/${act.id}`, label: 'BELGEYİ GÖR', color: 'text-blue-500' };
+      case 'collection': 
+      case 'payment': 
+        return { link: `/finans/izle/${act.id}`, label: 'İŞLEM GÖR', color: 'text-orange-500' };
+      default: 
+        return null;
+    }
+  };
+
+  const config = getViewConfig();
 
   return (
     <tr className="hover:bg-slate-50/80 transition-all group print:break-inside-avoid">
@@ -378,12 +321,13 @@ function ActivityRow({ act }: { act: Activity }) {
             #{act.doc_no}
           </span>
         )}
-        {isDocumented && (
+        {config && (
           <Link 
-            href={viewLink}
-            className="no-print inline-flex items-center gap-1.5 text-[9px] font-black text-blue-500 hover:text-blue-700 mt-2"
+            href={config.link}
+            className={`no-print inline-flex items-center gap-1.5 text-[9px] font-black mt-2 hover:opacity-70 transition-opacity ${config.color}`}
           >
-            <ExternalLink size={10} /> BELGEYİ GÖR
+            {act.type === 'collection' || act.type === 'payment' ? <ReceiptText size={10} /> : <ExternalLink size={10} />}
+            {config.label}
           </Link>
         )}
       </td>

@@ -1,24 +1,40 @@
 'use client';
 import { useState, useMemo, useEffect, useRef, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation'; // searchParams eklendi
 import { createTransaction } from '@/app/actions/erp-actions';
 
 export function QuickSale({ products = [], contacts = [] }: { products: any[], contacts: any[] }) {
   const router = useRouter();
+  const searchParams = useSearchParams(); // URL parametrelerini okur
   const [isPending, startTransition] = useTransition();
-// formData state'ini şu şekilde güncelle:
-const [formData, setFormData] = useState({ 
-  contact_id: '', 
-  product_id: '', 
-  qty: 1, 
-  tax_rate: 20 // Varsayılan değer
-});
+
+  const [formData, setFormData] = useState({ 
+    contact_id: '', 
+    product_id: '', 
+    qty: 1, 
+    tax_rate: 20,
+    unit_price: 0 
+  });
   
   const contactSelectRef = useRef<HTMLSelectElement>(null);
   const productSelectRef = useRef<HTMLSelectElement>(null);
   const qtyInputRef = useRef<HTMLInputElement>(null);
 
-  // Kısayol Desteği (F1: Müşteri, F2: Ürünü Sıfırla ve Seç)
+// URL'den gelen cariId'yi yakala ve set et
+  useEffect(() => {
+    const cariIdFromUrl = searchParams.get('cariId');
+    if (cariIdFromUrl) {
+      // Cari listede var mı kontrol et
+      const exists = contacts.find(c => String(c.id) === String(cariIdFromUrl));
+      if (exists) {
+        setFormData(prev => ({ ...prev, contact_id: cariIdFromUrl }));
+        // Cari seçili geldiği için odağı direkt ürün seçimine atalım
+        setTimeout(() => productSelectRef.current?.focus(), 300);
+      }
+    }
+  }, [searchParams, contacts]);
+
+// Kısayol Desteği (F1: Müşteri, F2: Ürünü Sıfırla ve Seç)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'F1') {
@@ -35,10 +51,15 @@ const [formData, setFormData] = useState({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  const selectedProduct = useMemo(() => {
-    if (!formData.product_id) return null;
-    return products.find((p: any) => String(p.id) === String(formData.product_id));
-  }, [products, formData.product_id]);
+const selectedProduct = useMemo(() => {
+  if (!formData.product_id) return null;
+  const found = products.find((p: any) => String(p.id) === String(formData.product_id));
+  
+  if (found && !found.image_url) {
+    console.warn(`DİKKAT: ${found.sku} ürünü bulundu ancak veritabanından image_url gelmedi!`);
+  }
+  return found;
+}, [products, formData.product_id]);
 
   const totalAmount = useMemo(() => 
     (Number(selectedProduct?.sell_price) || 0) * formData.qty, 
@@ -54,7 +75,8 @@ const handleProductChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     ...prev, 
     product_id: val, 
     qty: 1, 
-    tax_rate: prod?.tax_rate || 20 // Ürünün kendi KDV'sini getir
+    tax_rate: prod?.tax_rate || 20,
+    unit_price: prod?.sell_price || 0 // Otomatik fiyatı buraya çekiyoruz
   }));
   
   if (val) {
@@ -77,14 +99,12 @@ const handleSale = async (e?: React.FormEvent) => {
         contact_id: formData.contact_id,
         type: 'sale',
         invoice_type: 'SATIS',
-        items: [{ 
-          product_id: formData.product_id, 
-          quantity: formData.qty, 
-          // Veritabanındaki net fiyatı gönderiyoruz
-          unit_price: Number(selectedProduct.sell_price), 
-          // Seçilebilir KDV oranını (formData içindeki) gönderiyoruz
-          tax_rate: Number(formData.tax_rate) 
-        }],
+items: [{ 
+  product_id: formData.product_id, 
+  quantity: formData.qty, 
+  unit_price: Number(formData.unit_price), // Artık statik seçili ürün değil, state'deki fiyat gidiyor
+  tax_rate: Number(formData.tax_rate) 
+}],
         description: `Hızlı Satış: ${selectedProduct.sku}`
       });
 
@@ -146,7 +166,7 @@ const handleSale = async (e?: React.FormEvent) => {
         {/* Ürün Seçimi (F2) */}
         <div className="group space-y-1.5">
           <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 group-focus-within:text-blue-600 transition-colors">
-            Parça / SKU (F2)
+            Ürün / SKU (F2)
           </label>
           <select 
             ref={productSelectRef}
@@ -167,105 +187,137 @@ const handleSale = async (e?: React.FormEvent) => {
       </div>
 
       {/* Dinamik Stok ve Raf Bilgisi Paneli */}
-      <div className="h-[72px]">
-        {selectedProduct ? (
-          <div className="grid grid-cols-2 gap-3 animate-in fade-in zoom-in-95 duration-200">
-            <div className={`p-3 rounded-2xl border-2 flex flex-col justify-center transition-colors ${
-              Number(selectedProduct.stock_count) <= Number(selectedProduct.critical_limit) 
-                ? 'bg-red-50 border-red-100' 
-                : 'bg-blue-50/50 border-blue-100'
-            }`}>
-              <span className="text-[8px] font-black uppercase tracking-widest text-slate-400 mb-0.5 leading-none">Mevcut Stok</span>
-              <span className={`text-[11px] font-black italic ${Number(selectedProduct.stock_count) <= Number(selectedProduct.critical_limit) ? 'text-red-600' : 'text-blue-600'}`}>
-                 {selectedProduct.stock_count || 0} ADET {Number(selectedProduct.stock_count) <= Number(selectedProduct.critical_limit) && '⚠️'}
-              </span>
-            </div>
-            <div className="p-3 rounded-2xl border-2 border-slate-100 bg-slate-50/50 flex flex-col justify-center">
-              <span className="text-[8px] font-black uppercase tracking-widest text-slate-400 mb-0.5 leading-none">Raf Konumu</span>
-              <span className="text-[11px] font-black text-slate-700 italic uppercase">LOC: {selectedProduct.shelf_no || 'YOK'}</span>
-            </div>
-          </div>
-        ) : (
-          <div className="h-full flex items-center justify-center border-2 border-dashed border-slate-100 rounded-2xl bg-slate-50/20 italic text-[9px] font-black text-slate-300 uppercase tracking-widest">
-            Ürün Bekleniyor...
-          </div>
-        )}
+<div className="h-[90px]">
+  {selectedProduct ? (
+    <div className="grid grid-cols-12 gap-2 h-full animate-in fade-in zoom-in-95 duration-200">  
+{/* SOL: Ürün Görseli (Tam Kare ve Boşluksuz) */}
+<div className="col-span-4 relative group overflow-hidden rounded-2xl border-2 border-slate-100 bg-white flex items-center justify-center h-[100px] aspect-square shadow-sm">
+  {selectedProduct.image_url ? (
+    <img 
+      key={selectedProduct.id} 
+      src={selectedProduct.image_url} 
+      alt={selectedProduct.name} 
+      /* object-cover: Görseli kutuya yayar, boşluk bırakmaz (uzun resimleri ortadan kırpar) */
+      /* p-0: Kenar boşluğunu sıfırlar */
+      className="w-full h-full object-cover p-0 animate-in fade-in zoom-in-95 duration-500"
+      onError={(e) => {
+        (e.target as HTMLImageElement).src = 'https://placehold.co/200x200/f8fafc/cbd5e1?text=Hata';
+      }}
+    />
+  ) : (
+    <div className="flex flex-col items-center justify-center text-slate-300">
+       <span className="text-xl">📦</span>
+       <span className="text-[7px] font-black uppercase mt-1 text-center leading-none">Görsel<br/>Verisi Yok</span>
+    </div>
+  )}
+
+  {/* SKU Etiketi - Resmin üzerine binen şık alt bant */}
+  <div className="absolute bottom-0 inset-x-0 bg-slate-900/40 backdrop-blur-[2px] py-1 text-center">
+    <span className="text-[8px] text-white font-black tracking-widest uppercase truncate px-1 block">
+      {selectedProduct.sku}
+    </span>
+  </div>
+</div>
+
+      {/* SAĞ: Stok ve Konum Bilgileri */}
+      <div className="col-span-8 grid grid-rows-2 gap-2">
+        <div className={`p-2 rounded-xl border-2 flex flex-col justify-center transition-all ${
+          Number(selectedProduct.stock_count) <= Number(selectedProduct.critical_limit) 
+            ? 'bg-red-50 border-red-200' 
+            : 'bg-emerald-50/50 border-emerald-100'
+        }`}>
+          <span className="text-[8px] font-black uppercase tracking-widest text-slate-400 leading-none mb-1">Mevcut Stok</span>
+          <span className={`text-[13px] font-black italic ${Number(selectedProduct.stock_count) <= Number(selectedProduct.critical_limit) ? 'text-red-600' : 'text-emerald-600'}`}>
+             {selectedProduct.stock_count || 0} ADET {Number(selectedProduct.stock_count) <= Number(selectedProduct.critical_limit) ? '⚠️' : '✅'}
+          </span>
+        </div>
+        
+        <div className="p-2 rounded-xl border-2 border-slate-100 bg-slate-50 flex flex-col justify-center">
+          <span className="text-[8px] font-black uppercase tracking-widest text-slate-400 leading-none mb-1">Raf Konumu</span>
+          <span className="text-[12px] font-black text-slate-700 italic uppercase">
+             {selectedProduct.shelf_no ? `LOC: ${selectedProduct.shelf_no}` : 'RAF TANIMSIZ'}
+          </span>
+        </div>
       </div>
 
-{/* Sadeleştirilmiş Akıllı Finansal Panel */}
+    </div>
+  ) : (
+    <div className="h-full flex items-center justify-center border-2 border-dashed border-slate-200 rounded-[24px] bg-slate-50/50 italic text-[9px] font-black text-slate-400 uppercase tracking-[0.3em] animate-pulse">
+      Ürün Seçimi Bekleniyor...
+    </div>
+  )}
+</div>
+
+{/* Gelişmiş Dinamik Finansal Panel */}
 <div className="bg-[#0f172a] p-6 rounded-[32px] shadow-2xl border border-slate-800 relative overflow-hidden text-white">
   
-  {/* Üst Kısım: Giriş Alanları */}
-  <div className="flex items-center gap-4 mb-6">
-    <div className="flex-1 space-y-1.5">
-      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Miktar</label>
+  {/* Üst Kısım: Giriş Alanları (3'lü Grid) */}
+  <div className="grid grid-cols-3 gap-3 mb-6">
+    {/* Miktar */}
+    <div className="space-y-1.5">
+      <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Miktar</label>
       <input 
         ref={qtyInputRef}
         type="number"
         value={formData.qty}
-        className="w-full bg-slate-800/50 border-2 border-slate-700 rounded-2xl py-3 px-4 font-black text-xl outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all text-center"
+        className="w-full bg-slate-800/50 border-2 border-slate-700 rounded-2xl py-3 px-2 font-black text-lg outline-none focus:border-blue-500 text-center text-white transition-all"
         onChange={(e) => setFormData({...formData, qty: Math.max(1, Number(e.target.value))})}
       />
     </div>
-    <div className="flex-1 space-y-1.5">
-      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">KDV Oranı</label>
+
+    {/* BİRİM FİYAT (ELLE MÜDAHALE) */}
+    <div className="space-y-1.5">
+      <label className="text-[9px] font-black text-blue-500 uppercase tracking-widest ml-1 italic">Birim Fiyat</label>
       <div className="relative">
-        <select 
-          value={formData.tax_rate}
-          className="w-full bg-slate-800/50 border-2 border-slate-700 rounded-2xl py-3 px-4 font-black text-xl outline-none focus:border-blue-500 appearance-none text-center cursor-pointer"
-          onChange={(e) => setFormData({...formData, tax_rate: Number(e.target.value)})}
-        >
-          <option value="20">%20</option>
-          <option value="10">%10</option>
-          <option value="1">%1</option>
-          <option value="0">%0</option>
-        </select>
+        <input 
+          type="number"
+          step="0.01"
+          value={formData.unit_price}
+          className="w-full bg-slate-800/50 border-2 border-blue-900/50 rounded-2xl py-3 px-2 font-black text-lg outline-none focus:border-blue-400 text-center text-blue-100 transition-all"
+          onChange={(e) => setFormData({...formData, unit_price: Number(e.target.value)})}
+        />
       </div>
+    </div>
+
+    {/* KDV ORANI */}
+    <div className="space-y-1.5">
+      <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">KDV %</label>
+      <select 
+        value={formData.tax_rate}
+        className="w-full bg-slate-800/50 border-2 border-slate-700 rounded-2xl py-3 px-2 font-black text-lg outline-none focus:border-blue-500 text-center text-white appearance-none cursor-pointer"
+        onChange={(e) => setFormData({...formData, tax_rate: Number(e.target.value)})}
+      >
+        <option value="20">20</option>
+        <option value="10">10</option>
+        <option value="1">1</option>
+        <option value="0">0</option>
+      </select>
     </div>
   </div>
 
-  {/* Orta Kısım: Birim Fiyat Karşılaştırması (Vurgulu) */}
+  {/* Orta Kısım: Karşılaştırmalı Özet */}
   <div className="bg-slate-800/30 rounded-[24px] p-4 border border-slate-700/50 mb-6 flex justify-between items-center">
-    <div>
-      <span className="text-[9px] font-black text-slate-500 uppercase tracking-tighter block mb-1">Birim (NET)</span>
-      <span className="text-lg font-bold text-slate-400 italic">
-        {selectedProduct ? Number(selectedProduct.sell_price).toLocaleString('tr-TR', { minimumFractionDigits: 2 }) : "0,00"} <small className="text-[10px] not-italic opacity-50">TL</small>
+    <div className="flex flex-col">
+      <span className="text-[8px] font-black text-slate-500 uppercase tracking-tighter mb-1">Satır Toplamı (Net)</span>
+      <span className="text-sm font-bold text-slate-400">
+        {(formData.unit_price * formData.qty).toLocaleString('tr-TR', { minimumFractionDigits: 2 })} TL
       </span>
     </div>
     <div className="h-8 w-[1px] bg-slate-700"></div>
-    <div className="text-right">
-      <span className="text-[9px] font-black text-blue-500 uppercase tracking-tighter block mb-1">Birim (KDV DAHİL)</span>
+    <div className="text-right flex flex-col">
+      <span className="text-[8px] font-black text-blue-500 uppercase tracking-tighter mb-1">Genel Toplam (KDV'li)</span>
       <span className="text-2xl font-black text-blue-400 italic tracking-tighter">
-        {selectedProduct ? (Number(selectedProduct.sell_price) * (1 + formData.tax_rate / 100)).toLocaleString('tr-TR', { minimumFractionDigits: 2 }) : "0,00"} <small className="text-xs not-italic">TL</small>
+        {(formData.unit_price * formData.qty * (1 + formData.tax_rate / 100)).toLocaleString('tr-TR', { minimumFractionDigits: 2 })} <small className="text-xs not-italic">TL</small>
       </span>
     </div>
   </div>
 
-  {/* Alt Kısım: Özet ve Büyük Toplam */}
-  <div className="flex justify-between items-end px-2">
-    <div className="space-y-1">
-      <div className="flex gap-2 items-center">
-        <span className="text-[9px] font-bold text-slate-500 uppercase">Ara Toplam:</span>
-        <span className="text-xs font-black text-slate-400">{(Number(selectedProduct?.sell_price || 0) * formData.qty).toLocaleString('tr-TR')} TL</span>
-      </div>
-      <div className="flex gap-2 items-center">
-        <span className="text-[9px] font-bold text-slate-500 uppercase">KDV Toplam:</span>
-        <span className="text-xs font-black text-slate-400">{(Number(selectedProduct?.sell_price || 0) * formData.qty * (formData.tax_rate / 100)).toLocaleString('tr-TR')} TL</span>
-      </div>
+  {/* Bilgi Notu */}
+  {selectedProduct && formData.unit_price !== selectedProduct.sell_price && (
+    <div className="absolute top-0 right-0 left-0 bg-amber-500/10 border-b border-amber-500/20 py-1 text-center">
+      <span className="text-[8px] font-black text-amber-500 uppercase tracking-widest">⚠️ Manuel Fiyat Girişi Aktif</span>
     </div>
-
-    <div className="text-right">
-      <span className="text-[10px] font-black text-emerald-500 uppercase tracking-[0.2em] block mb-1">Ödenecek Tutar</span>
-      <div className="flex items-baseline justify-end gap-1">
-        <span className="text-4xl font-black text-white italic tracking-tighter leading-none">
-          {selectedProduct 
-            ? (Number(selectedProduct.sell_price) * formData.qty * (1 + formData.tax_rate / 100)).toLocaleString('tr-TR', { minimumFractionDigits: 2 })
-            : "0,00"}
-        </span>
-        <span className="text-emerald-500 font-black text-sm">TL</span>
-      </div>
-    </div>
-  </div>
+  )}
 </div>
 
       {/* Satış Butonu */}
